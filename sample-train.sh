@@ -1,9 +1,9 @@
 #export TMPDIR=/mnt/t5x/temp
-export MODEL_DIR="gs://sivaibhav-exp/t5x/t5x-models/benchmark"
+export MODEL_DIR="gs://sivaibhav-exp/t5x/t5x-models/benchmark/8b"
 python3 t5x/train.py \
   --gin_search_paths=/home/sivaibhav/t5x \
-  --gin_file=/home/sivaibhav/t5x/t5x/configs/runs/pretrain-modif.gin \
-  --gin_file=meg-config-1.7b.gin \
+  --gin_file=/home/sivaibhav/t5x/t5x/configs/runs/pretrain-8b.gin \
+  --gin_file=meg-config-8b.gin \
   --gin.MIXTURE_OR_TASK_NAME="'wikipedia_20190301.en_v003_unsupervised'" \
   --gin.MIXTURE_OR_TASK_MODULE="'t5.data.tasks'" \
   --gin.MODEL_DIR="'${MODEL_DIR}'" \
