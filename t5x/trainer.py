@@ -253,6 +253,8 @@ class BaseTrainer(abc.ABC):
     """Runs the train loop for the given number of steps."""
     tick = time.time()
     metrics = self.train_metrics_manager.initial_accumulator
+    import jax.profiler
+    server = jax.profiler.start_server(9999)
     for i in range(num_steps):
       logging.log_every_n_seconds(logging.INFO, "Training: step %d.", 10, i)
       # Use pre-compiled step, if available.
