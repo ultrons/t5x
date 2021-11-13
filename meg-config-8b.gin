@@ -9,8 +9,8 @@ network.T5Config:
   dtype = 'bfloat16'
   emb_dim = 5120
   num_heads = 40
-  num_encoder_layers = 0
-  num_decoder_layers = 26
+  num_encoder_layers = 8
+  num_decoder_layers = 8
   head_dim = 128
   mlp_dim = 20480
   mlp_activations = ('gelu', 'linear')
