@@ -1,0 +1,18 @@
+# T5.1.1 Small model.
+
+include 't5x/examples/t5/t5_1_1/base.gin'  # imports vocab, optimizer and model.
+
+# ------------------- Network specification overrides --------------------------
+network.Transformer.config = @network.T5Config()
+network.T5Config:
+  vocab_size = 32128  # vocab size rounded to a multiple of 128 for TPU efficiency
+  dtype = 'bfloat16'
+  emb_dim = 5120
+  num_heads = 64
+  num_encoder_layers = 64
+  num_decoder_layers = 64
+  head_dim = 128
+  mlp_dim = 32768
+  mlp_activations = ('gelu', 'linear')
+  dropout_rate = 0.0
+  logits_via_embedding = False
