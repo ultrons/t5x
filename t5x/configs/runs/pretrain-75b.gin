@@ -92,7 +92,7 @@ utils.SaveCheckpointConfig:
 
 partitioning.ModelBasedPjitPartitioner:
   num_partitions = 128
-  model_parallel_submesh = (8,8,2,1)
+  model_parallel_submesh = (2,8,8,1)
 
 trainer.Trainer:
   num_microbatches = None
