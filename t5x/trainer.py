@@ -220,6 +220,7 @@ class BaseTrainer(abc.ABC):
         MetricMapSpec, BatchSpec], PartitionedEvalCallable] = {}
 
     self.train_state = train_state
+    self.summary_dir = summary_dir
 
     self.stop_training = False
 
@@ -255,8 +256,12 @@ class BaseTrainer(abc.ABC):
     metrics = self.train_metrics_manager.initial_accumulator
     import jax.profiler
     server = jax.profiler.start_server(9999)
+    profile_start_step = 10
+    profile_steps = 5
     for i in range(num_steps):
       logging.log_every_n_seconds(logging.INFO, "Training: step %d.", 10, i)
+      if i == profile_start_step:
+          jax.profiler.start_trace(f"{self.summary_dir}/profile-log")
       # Use pre-compiled step, if available.
       train_step_fn = self._compiled_train_step or self._partitioned_train_step
       with jax.profiler.StepTraceAnnotation(
@@ -264,6 +269,8 @@ class BaseTrainer(abc.ABC):
         batch = next(batch_iter)
         self.train_state, metrics = train_step_fn(self.train_state, batch,
                                                   metrics)
+      if i == profile_start_step + profile_steps :
+          jax.profiler.stop_trace()
     jax.tree_map(lambda x: x.block_until_ready(), self.train_state)
     tock = time.time()
     return self.train_metrics_manager.write_metrics_summary(
