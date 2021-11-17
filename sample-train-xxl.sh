@@ -6,7 +6,7 @@ export MODEL_DIR="gs://sivaibhav-exp/t5x/t5x-models/benchmark/${ACCELERATOR_TYPE
 python3 t5x/train.py \
   --gin_search_paths=/home/sivaibhav/t5x \
   --gin_file=/home/sivaibhav/t5x/t5x/configs/runs/pretrain-xxl.gin \
-  --gin_file=./t5x/examples/scalable_t5/t5_1_1/small.gin \
+  --gin_file=./t5x/examples/scalable_t5/t5_1_1/xxl.gin \
   --gin.MIXTURE_OR_TASK_NAME="'wikipedia_20190301.en_v003_unsupervised'" \
   --gin.MIXTURE_OR_TASK_MODULE="'t5.data.tasks'" \
   --gin.MODEL_DIR="'${MODEL_DIR}'" \
