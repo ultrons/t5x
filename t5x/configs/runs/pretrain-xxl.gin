@@ -61,13 +61,26 @@ train_script.train:
 
 partitioning.ModelBasedPjitPartitioner:
   num_partitions = 4
-  model_parallel_submesh = (2,2,1,1)
+  model_parallel_submesh = (4,1,1,1)
+  logical_axis_rules = (('batch', 'data'),
+      ('vocab', 'model'),
+      ('mlp', 'model'),
+      ('heads', 'model'),
+      ('joined_kv', 'model'),
+      ('kv', None),
+      ('embed', 'model'),
+      ('embed', 'data'),
+      ('relpos_buckets', None),
+      ('length', None),
+      ('layers', None),
+      ('stack', None),
+    )
 
 train/utils.DatasetConfig:
   mixture_or_task_name = %MIXTURE_OR_TASK_NAME
   task_feature_lengths = %TASK_FEATURE_LENGTHS
   split = 'train'
-  batch_size = 4
+  batch_size = 2048
   shuffle = %SHUFFLE_TRAIN_EXAMPLES
   seed = None  # use a new seed each run/restart
   use_cached = %USE_CACHED_TASKS
@@ -95,7 +108,7 @@ utils.SaveCheckpointConfig:
   save_dataset = False  # don't checkpoint dataset state
 
 trainer.Trainer:
-  num_microbatches = None
+  num_microbatches = 8
   learning_rate_fn = @utils.create_learning_rate_scheduler()
 utils.create_learning_rate_scheduler:
   factors = 'constant * rsqrt_decay'
