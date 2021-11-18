@@ -60,8 +60,8 @@ train_script.train:
   summarize_config_fn = @gin_utils.summarize_gin_config
 
 partitioning.ModelBasedPjitPartitioner:
-  num_partitions = 8
-  model_parallel_submesh = (4,2,1,1)
+  num_partitions = 16
+  model_parallel_submesh = (4,4,1,1)
   logical_axis_rules = (('batch', 'data'),
       ('vocab', 'model'),
       ('mlp', 'model'),
