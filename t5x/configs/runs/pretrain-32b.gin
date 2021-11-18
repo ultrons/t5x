@@ -60,8 +60,8 @@ train_script.train:
   summarize_config_fn = @gin_utils.summarize_gin_config
 
 partitioning.ModelBasedPjitPartitioner:
-  num_partitions = 4
-  model_parallel_submesh = (4,1,1,1)
+  num_partitions = 8
+  model_parallel_submesh = (2,2,2,1)
   logical_axis_rules = (('batch', 'data'),
       ('vocab', 'model'),
       ('mlp', 'model'),
@@ -80,7 +80,7 @@ train/utils.DatasetConfig:
   mixture_or_task_name = %MIXTURE_OR_TASK_NAME
   task_feature_lengths = %TASK_FEATURE_LENGTHS
   split = 'train'
-  batch_size = 128
+  batch_size = 32
   shuffle = %SHUFFLE_TRAIN_EXAMPLES
   seed = None  # use a new seed each run/restart
   use_cached = %USE_CACHED_TASKS
