@@ -51,7 +51,7 @@ network.TransformerConfig:
   vocab_size = 32128  # vocab size rounded to a multiple of 128 for TPU efficiency
   dtype = 'bfloat16'
   emb_dim = 8192
-  num_heads = 12
+  num_heads = 64
   num_layers = 40
   head_dim = 128
   mlp_dim = 32768
