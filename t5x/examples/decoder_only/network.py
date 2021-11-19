@@ -20,6 +20,9 @@ from flax import linen as nn
 from flax import struct
 import jax.numpy as jnp
 from t5x.examples.decoder_only import layers
+from flax.linen import partitioning as nn_partitioning
+with_sharding_constraint = nn_partitioning.with_sharding_constraint
+scan_with_axes = nn_partitioning.scan_with_axes
 remat = nn_partitioning.remat
 ScanIn = nn_partitioning.ScanIn
 
@@ -201,7 +204,7 @@ class Decoder(nn.Module):
           BlockLayer,
           prevent_cse=True,
           policy=policy,
-          static_argnums=(4, 5, 6))
+          static_argnums=(2, 3, 5))
     if cfg.scan_layers:
       initializing = self.is_mutable_collection('params')
       params_spec = (
@@ -219,7 +222,7 @@ class Decoder(nn.Module):
           },
           in_axes=(nn.broadcast, nn.broadcast, nn.broadcast, nn.broadcast,
                    nn.broadcast, nn.broadcast),
-          length=cfg.num_decoder_layers,
+          length=cfg.num_layers,
           axis_name='layers')(
               config=cfg, name='layers')(
                   y, decoder_mask,
@@ -259,7 +262,11 @@ class Decoder(nn.Module):
           kernel_axes=('embed', 'vocab'),
           name='logits_dense')(
               y)
-    return logits
+    #return logits
+    if cfg.scan_layers:
+      return logits, None
+    else:
+      return logits
 
 
 # TODO(hwchung): remove this after figuring out the name scope issue.
