@@ -115,7 +115,10 @@ class DecoderLayer(nn.Module):
             y, deterministic=deterministic)
     y = y + x
 
-    return y
+    if cfg.scan_layers:
+      return y, None
+    else:
+      return y
 
 
 class Decoder(nn.Module):
@@ -262,11 +265,7 @@ class Decoder(nn.Module):
           kernel_axes=('embed', 'vocab'),
           name='logits_dense')(
               y)
-    #return logits
-    if cfg.scan_layers:
-      return logits, None
-    else:
-      return logits
+    return logits
 
 
 # TODO(hwchung): remove this after figuring out the name scope issue.
