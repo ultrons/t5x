@@ -58,3 +58,5 @@ network.TransformerConfig:
   mlp_activations = ('gelu', 'linear')
   dropout_rate = %DROPOUT_RATE
   logits_via_embedding = True
+  scan_layers = True
+  remat_policy = 'full'

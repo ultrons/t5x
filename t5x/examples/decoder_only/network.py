@@ -20,6 +20,8 @@ from flax import linen as nn
 from flax import struct
 import jax.numpy as jnp
 from t5x.examples.decoder_only import layers
+remat = nn_partitioning.remat
+ScanIn = nn_partitioning.ScanIn
 
 
 @struct.dataclass
@@ -38,7 +40,9 @@ class TransformerConfig:
   dropout_rate: float = 0.1
   # If `True`, the embedding weights are used in the decoder output layer.
   logits_via_embedding: bool = False
-
+  remat_policy: str = 'none'
+  scan_layers: bool = True
+  param_scan_axis: int = 1
 
 class DecoderLayer(nn.Module):
   """Transformer decoder layer."""
@@ -186,18 +190,55 @@ class Decoder(nn.Module):
             y, deterministic=deterministic)
     y = y.astype(cfg.dtype)
 
-    for lyr in range(cfg.num_layers):
-      # [batch, length, emb_dim] -> [batch, length, emb_dim]
-      y = DecoderLayer(
-          config=cfg,
-          name=f'layers_{lyr}')(
-              y,
-              decoder_mask=decoder_mask,
-              deterministic=deterministic,
-              decode=decode,
-              max_decode_length=max_decode_length,
-              prefill=prefill,
-              prefill_lengths=prefill_lengths)
+    BlockLayer = DecoderLayer
+
+    if cfg.remat_policy not in (None, 'none'):
+      if cfg.remat_policy == 'minimal':
+        policy = jax.checkpoint_policies.checkpoint_dots
+      else:
+        policy = None
+      BlockLayer = remat(  # pylint: disable=invalid-name
+          BlockLayer,
+          prevent_cse=True,
+          policy=policy,
+          static_argnums=(4, 5, 6))
+    if cfg.scan_layers:
+      initializing = self.is_mutable_collection('params')
+      params_spec = (
+          cfg.param_scan_axis if initializing else ScanIn(cfg.param_scan_axis))
+      cache_spec = 0
+      y, _ = scan_with_axes(
+          BlockLayer,
+          variable_axes={
+              'params': params_spec,
+              'cache': cache_spec
+          },
+          split_rngs={
+              'params': True,
+              'dropout': True
+          },
+          in_axes=(nn.broadcast, nn.broadcast, nn.broadcast, nn.broadcast,
+                   nn.broadcast, nn.broadcast),
+          length=cfg.num_decoder_layers,
+          axis_name='layers')(
+              config=cfg, name='layers')(
+                  y, decoder_mask,
+                  deterministic, decode, max_decode_length,
+                  prefill, prefill_lengths
+              )
+    else:
+      for lyr in range(cfg.num_layers):
+        # [batch, length, emb_dim] -> [batch, length, emb_dim]
+        y = BlockLayer(
+            config=cfg,
+            name=f'layers_{lyr}')(
+                y,
+                decoder_mask=decoder_mask,
+                deterministic=deterministic,
+                decode=decode,
+                max_decode_length=max_decode_length,
+                prefill=prefill,
+                prefill_lengths=prefill_lengths)
 
     y = layers.LayerNorm(dtype=cfg.dtype, name='decoder_norm')(y)
     y = nn.Dropout(
@@ -226,6 +267,7 @@ class DecoderWrapper(nn.Module):
   """Thin wrapper for the outer "decoder/" name scope."""
 
   config: TransformerConfig
+  scan_layers: bool = struct.field(init=False)
 
   def setup(self):
     self.decoder = Decoder(self.config, name='decoder')
