@@ -21,6 +21,7 @@ from flax import struct
 import jax.numpy as jnp
 from t5x.examples.decoder_only import layers
 from flax.linen import partitioning as nn_partitioning
+import jax
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 scan_with_axes = nn_partitioning.scan_with_axes
 remat = nn_partitioning.remat
