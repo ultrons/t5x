@@ -78,6 +78,7 @@ class DecoderLayer(nn.Module):
     x = layers.LayerNorm(
         dtype=cfg.dtype, name='pre_self_attention_layer_norm')(
             inputs)
+    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
 
     # Self-attention block
     x = layers.MultiHeadDotProductAttention(
@@ -100,9 +101,11 @@ class DecoderLayer(nn.Module):
         name='post_self_attention_dropout')(
             x, deterministic=deterministic)
     x = x + inputs
+    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
 
     # MLP block.
     y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
+    y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
     y = layers.MlpBlock(
         intermediate_dim=cfg.mlp_dim,
         activations=cfg.mlp_activations,
@@ -114,6 +117,7 @@ class DecoderLayer(nn.Module):
         rate=cfg.dropout_rate, broadcast_dims=(-2,), name='post_mlp_dropout')(
             y, deterministic=deterministic)
     y = y + x
+    y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
 
     if cfg.scan_layers:
       return y, None
