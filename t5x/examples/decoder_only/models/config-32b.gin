@@ -55,7 +55,7 @@ network.TransformerConfig:
   num_layers = 40
   head_dim = 128
   mlp_dim = 32768
-  mlp_activations = ('gelu', 'linear')
+  mlp_activations = ('gelu')
   dropout_rate = %DROPOUT_RATE
   logits_via_embedding = True
   scan_layers = True

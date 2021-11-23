@@ -13,7 +13,7 @@ network.T5Config:
   num_decoder_layers = 24
   head_dim = 64
   mlp_dim = 10240
-  mlp_activations = ('gelu', 'linear')
+  mlp_activations = ('gelu')
   dropout_rate = 0.0
   logits_via_embedding = False
   scan_layers = True
