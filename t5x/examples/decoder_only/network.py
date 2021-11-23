@@ -80,7 +80,7 @@ class DecoderLayer(nn.Module):
     x = layers.LayerNorm(
         dtype=cfg.dtype, name='pre_self_attention_layer_norm')(
             inputs)
-    #x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
 
     # Self-attention block
     x = layers.MultiHeadDotProductAttention(
