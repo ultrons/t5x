@@ -481,6 +481,7 @@ class MultiHeadDotProductAttention(nn.Module):
         deterministic=deterministic,
         dtype=self.dtype,
         float32_logits=self.float32_logits)
+    #x = with_sharding_constraint(x, ('batch', 'length', 'joined_kv'))
 
     # Back to the original inputs dimensions.
     out = DenseGeneral(
@@ -595,7 +596,7 @@ class MlpBlock(nn.Module):
     """Applies Transformer MlpBlock module."""
     # Iterate over specified MLP input activation functions.
     # e.g. ('relu',) or ('linear', 'gelu') for gated-gelu.
-    activations = []
+    #activations = []
     for idx, act_fn in enumerate(self.activations):
       dense_name = 'wi' if len(self.activations) == 1 else f'wi_{idx}'
       x = DenseGeneral(
@@ -606,16 +607,15 @@ class MlpBlock(nn.Module):
           name=dense_name)(
               inputs)
       x = _convert_to_activation_function(act_fn)(x)
-      activations.append(x)
+    #  activations.append(x)
 
     # Take elementwise product of above intermediate activations.
-    x = functools.reduce(operator.mul, activations)
+    #x = functools.reduce(operator.mul, activations)
     # Apply dropout and final dense output projection.
     x = with_sharding_constraint(x, ('batch', 'length', 'mlp'))
     x = nn.Dropout(
         rate=self.intermediate_dropout_rate, broadcast_dims=(-2,))(
             x, deterministic=deterministic)  # Broadcast along length.
-    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     output = DenseGeneral(
         inputs.shape[-1],
         dtype=self.dtype,
@@ -623,6 +623,8 @@ class MlpBlock(nn.Module):
         kernel_axes=('mlp', 'embed'),
         name='wo')(
             x)
+
+    output = with_sharding_constraint(output, ('batch', 'length', 'embed'))
     return output
 
 
