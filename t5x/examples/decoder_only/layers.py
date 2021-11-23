@@ -492,7 +492,7 @@ class MultiHeadDotProductAttention(nn.Module):
         dtype=self.dtype,
         name='out')(
             x)
-    out = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    out = with_sharding_constraint(out, ('batch', 'length', 'embed'))
     return out
 
 
