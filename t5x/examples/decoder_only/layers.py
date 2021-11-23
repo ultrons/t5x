@@ -481,7 +481,7 @@ class MultiHeadDotProductAttention(nn.Module):
         deterministic=deterministic,
         dtype=self.dtype,
         float32_logits=self.float32_logits)
-    #x = with_sharding_constraint(x, ('batch', 'length', 'joined_kv'))
+    x = with_sharding_constraint(x, ('batch', 'length', 'heads', 'joined_kv'))
 
     # Back to the original inputs dimensions.
     out = DenseGeneral(
@@ -492,6 +492,7 @@ class MultiHeadDotProductAttention(nn.Module):
         dtype=self.dtype,
         name='out')(
             x)
+    out = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     return out
 
 
