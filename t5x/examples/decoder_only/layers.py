@@ -611,6 +611,7 @@ class MlpBlock(nn.Module):
     # Take elementwise product of above intermediate activations.
     x = functools.reduce(operator.mul, activations)
     # Apply dropout and final dense output projection.
+    x = with_sharding_constraint(x, ('batch', 'length', 'mlp'))
     x = nn.Dropout(
         rate=self.intermediate_dropout_rate, broadcast_dims=(-2,))(
             x, deterministic=deterministic)  # Broadcast along length.
