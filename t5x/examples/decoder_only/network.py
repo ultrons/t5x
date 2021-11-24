@@ -102,9 +102,9 @@ class DecoderLayer(nn.Module):
         broadcast_dims=(-2,),
         name='post_self_attention_dropout')(
             x, deterministic=deterministic)
-    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    #x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     x = x + inputs
-    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    #x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
 
     # MLP block.
     y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
