@@ -77,10 +77,10 @@ class DecoderLayer(nn.Module):
 
     # `inputs` is layer input with a shape [batch, length, emb_dim].
     #inputs = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
-    x = layers.LayerNorm(
-        dtype=cfg.dtype, name='pre_self_attention_layer_norm')(
-            inputs)
-    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    #x = layers.LayerNorm(
+    #    dtype=cfg.dtype, name='pre_self_attention_layer_norm')(
+    #        inputs)
+    x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
 
     # Self-attention block
     x = layers.MultiHeadDotProductAttention(
