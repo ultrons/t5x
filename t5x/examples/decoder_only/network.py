@@ -102,6 +102,7 @@ class DecoderLayer(nn.Module):
         broadcast_dims=(-2,),
         name='post_self_attention_dropout')(
             x, deterministic=deterministic)
+    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     x = x + inputs
     x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
 
