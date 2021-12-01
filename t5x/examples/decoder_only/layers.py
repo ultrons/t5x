@@ -45,10 +45,65 @@ Shape = Iterable[int]
 Activation = Callable[..., Array]
 # Parameter initializers.
 Initializer = Callable[[PRNGKey, Shape, DType], Array]
+InitializerAxis = Union[int, Tuple[int, ...]]
+NdInitializer = Callable[
+    [PRNGKey, Shape, DType, InitializerAxis, InitializerAxis], Array]
 
 default_embed_init = nn.initializers.variance_scaling(
     1.0, 'fan_in', 'normal', out_axis=0)
 
+def _compute_fans(shape: jax.core.NamedShape, in_axis=-2, out_axis=-1):
+  """Inlined JAX `nn.initializer._compute_fans`."""
+  if isinstance(in_axis, int):
+    in_size = shape[in_axis]
+  else:
+    in_size = int(np.prod([shape[i] for i in in_axis]))
+  if isinstance(out_axis, int):
+    out_size = shape[out_axis]
+  else:
+    out_size = int(np.prod([shape[i] for i in out_axis]))
+  receptive_field_size = shape.total / in_size / out_size
+  fan_in = in_size * receptive_field_size
+  fan_out = out_size * receptive_field_size
+  return fan_in, fan_out
+
+def variance_scaling(scale, mode, distribution, in_axis=-2, out_axis=-1,
+                     dtype=jnp.float_):
+  """Inlined JAX `nn.initializer.variance_scaling`."""
+  def init(key, shape, dtype=dtype):
+    dtype = jax.dtypes.canonicalize_dtype(dtype)
+    shape = jax.core.as_named_shape(shape)
+    fan_in, fan_out = _compute_fans(shape, in_axis, out_axis)
+    if mode == 'fan_in':
+      denominator = fan_in
+    elif mode == 'fan_out':
+      denominator = fan_out
+    elif mode == 'fan_avg':
+      denominator = (fan_in + fan_out) / 2
+    else:
+      raise ValueError(
+          'invalid mode for variance scaling initializer: {}'.format(mode))
+    variance = jnp.array(scale / denominator, dtype=dtype)
+    if distribution == 'truncated_normal':
+      # constant is stddev of standard normal truncated to (-2, 2)
+      stddev = jnp.sqrt(variance) / jnp.array(.87962566103423978, dtype)
+      return random.truncated_normal(key, -2, 2, shape, dtype) * stddev
+    elif distribution == 'normal':
+      return random.normal(key, shape, dtype) * jnp.sqrt(variance)
+    elif distribution == 'uniform':
+      return random.uniform(key, shape, dtype, -1) * jnp.sqrt(3 * variance)
+    else:
+      raise ValueError('invalid distribution for variance scaling '
+                       'initializer: {}'.format(distribution))
+  return init
+
+def nd_dense_init(scale, mode, distribution):
+  """Initializer with in_axis, out_axis set at call time."""
+  def init_fn(key, shape, dtype, in_axis, out_axis):
+    fn = variance_scaling(
+        scale, mode, distribution, in_axis, out_axis)
+    return fn(key, shape, dtype)
+  return init_fn
 
 def dot_product_attention(query: Array,
                           key: Array,
@@ -92,6 +147,10 @@ def dot_product_attention(query: Array,
       'q, k, v num_heads must match.')
   assert key.shape[-3] == value.shape[-3], 'k, v lengths must match.'
   assert query.shape[-1] == key.shape[-1], 'q, k depths must match.'
+
+  # Scaling query
+  depth = query.shape[-1]
+  query = query / jnp.sqrt(depth).astype(dtype)
 
   # Casting logits and softmax computation for float32 for model stability.
   if float32_logits:
@@ -142,8 +201,9 @@ class MultiHeadDotProductAttention(nn.Module):
   head_dim: int
   dtype: DType = jnp.float32
   dropout_rate: float = 0.
-  kernel_init: Initializer = nn.initializers.variance_scaling(
-      1.0, 'fan_in', 'normal')
+  #kernel_init: Initializer = nn.initializers.variance_scaling(
+  #    1.0, 'fan_in', 'normal')
+  kernel_init: NdInitializer = nd_dense_init(1.0, 'fan_in', 'normal')
   float32_logits: bool = False
 
   def update_cache_prefill(
@@ -326,24 +386,63 @@ class MultiHeadDotProductAttention(nn.Module):
     Returns:
       output of shape `[batch, q_length, embed]`.
     """
-    projection = functools.partial(
-        DenseGeneral,
-        axis=-1,
-        features=(self.num_heads, self.head_dim),
-        kernel_axes=('embed', 'joined_kv'),
-        dtype=self.dtype)
+    # projection = functools.partial(
+    #     DenseGeneral,
+    #     axis=-1,
+    #     features=(self.num_heads, self.head_dim),
+    #     kernel_axes=('embed', 'joined_kv'),
+    #     dtype=self.dtype)
 
-    # NOTE: T5 does not explicitly rescale the attention logits by
-    #       1/sqrt(depth_kq)!  This is folded into the initializers of the
-    #       linear transformations, which is equivalent under Adafactor.
-    depth_scaling = jnp.sqrt(self.head_dim).astype(self.dtype)
-    query_init = lambda *args: self.kernel_init(*args) / depth_scaling
+    # # NOTE: T5 does not explicitly rescale the attention logits by
+    # #       1/sqrt(depth_kq)!  This is folded into the initializers of the
+    # #       linear transformations, which is equivalent under Adafactor.
+    # depth_scaling = jnp.sqrt(self.head_dim).astype(self.dtype)
+    # query_init = lambda *args: self.kernel_init(*args) / depth_scaling
 
-    # Project inputs_q to multi-headed q/k/v
-    # dimensions are then [batch, length, num_heads, head_dim]
-    query = projection(kernel_init=query_init, name='query')(inputs_q)
-    key = projection(kernel_init=self.kernel_init, name='key')(inputs_kv)
-    value = projection(kernel_init=self.kernel_init, name='value')(inputs_kv)
+    # # Project inputs_q to multi-headed q/k/v
+    # # dimensions are then [batch, length, num_heads, head_dim]
+    # query = projection(kernel_init=query_init, name='query')(inputs_q)
+    # key = projection(kernel_init=self.kernel_init, name='key')(inputs_kv)
+    # value = projection(kernel_init=self.kernel_init, name='value')(inputs_kv)
+
+    # if inputs_q is inputs_kv:
+    if True:
+      # self attention case
+      qkv = DenseGeneral(
+          axis=-1,
+          features=(3, self.num_heads, self.head_dim),
+          kernel_axes=('embed', 'stack', 'heads', 'kv'),
+          kernel_init=self.kernel_init,
+          kernel_out_axis=(2, 3),
+          dtype=self.dtype)(
+              inputs_q)
+      qkv = with_sharding_constraint(
+          qkv, ('batch', 'length', 'stack', 'heads', 'kv'))
+      query = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 0, 1, -3), -3)
+      key = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 1, 1, -3), -3)
+      value = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 2, 1, -3), -3)
+    # else:
+    #   # cross attention case
+    #   query = DenseGeneral(
+    #       axis=-1,
+    #       features=(self.num_heads, self.head_dim),
+    #       kernel_axes=('embed', 'heads', 'kv'),
+    #       kernel_init=self.kernel_init,
+    #       dtype=self.dtype)(
+    #           inputs_q)
+    #   kv = DenseGeneral(
+    #       axis=-1,
+    #       features=(2, self.num_heads, self.head_dim),
+    #       kernel_axes=('embed', 'stack', 'heads', 'kv'),
+    #       kernel_out_axis=(2, 3),
+    #       kernel_init=self.kernel_init,
+    #       dtype=self.dtype)(
+    #           inputs_kv)
+    #   kv = with_sharding_constraint(kv,
+    #                                 ('batch', 'length', 'stack', 'heads', 'kv'))
+    #   key = jnp.squeeze(lax.dynamic_slice_in_dim(kv, 1, 1, -3), -3)
+    #   value = jnp.squeeze(lax.dynamic_slice_in_dim(kv, 2, 1, -3), -3)
+
 
     query = with_sharding_constraint(query, ('batch', 'length', 'heads', 'kv'))
     key = with_sharding_constraint(key, ('batch', 'length', 'heads', 'kv'))
@@ -482,13 +581,12 @@ class MultiHeadDotProductAttention(nn.Module):
         dtype=self.dtype,
         float32_logits=self.float32_logits)
     x = with_sharding_constraint(x, ('batch', 'length', 'heads', 'joined_kv'))
-
     # Back to the original inputs dimensions.
     out = DenseGeneral(
         features=inputs_q.shape[-1],  # output dim is set to the input dim.
         axis=(-2, -1),
         kernel_init=self.kernel_init,
-        kernel_axes=('joined_kv', 'embed'),
+        kernel_axes=('heads', 'kv', 'embed'),
         dtype=self.dtype,
         name='out')(
             x)
@@ -526,6 +624,8 @@ class DenseGeneral(nn.Module):
   kernel_init: Initializer = nn.initializers.variance_scaling(
       1.0, 'fan_in', 'truncated_normal')
   kernel_axes: Tuple[str, ...] = ()
+  kernel_in_axis: Union[None, int, Tuple[int, ...]] = None
+  kernel_out_axis: Union[None, int, Tuple[int, ...]] = None
 
   @nn.compact
   def __call__(self, inputs: Array) -> Array:
@@ -544,16 +644,24 @@ class DenseGeneral(nn.Module):
     axis = _normalize_axes(axis, inputs.ndim)
 
     kernel_shape = tuple([inputs.shape[ax] for ax in axis]) + features
-    kernel_param_shape = (np.prod([inputs.shape[ax] for ax in axis]),
-                          np.prod(features))
+    # kernel_param_shape = (np.prod([inputs.shape[ax] for ax in axis]),
+    #                       np.prod(features))
+    kernel_in_axis = self.kernel_in_axis
+    kernel_out_axis = self.kernel_out_axis
+    if kernel_in_axis is None:
+      kernel_in_axis = np.arange(len(axis))
+    if kernel_out_axis is None:
+      kernel_out_axis = np.arange(len(axis), len(axis) + len(features))
+
     kernel = param_with_axes(
         'kernel',
         self.kernel_init,
-        kernel_param_shape,
+        kernel_shape,
         jnp.float32,
+        kernel_in_axis,
+        kernel_out_axis,
         axes=self.kernel_axes)
     kernel = jnp.asarray(kernel, self.dtype)
-    kernel = jnp.reshape(kernel, kernel_shape)
 
     contract_ind = tuple(range(0, len(axis)))
     return lax.dot_general(inputs, kernel, ((axis, contract_ind), ((), ())))
@@ -587,8 +695,9 @@ class MlpBlock(nn.Module):
   """
   intermediate_dim: int = 2048
   activations: Sequence[Union[str, Callable]] = ('relu',)
-  kernel_init: Initializer = nn.initializers.variance_scaling(
-      1.0, 'fan_in', 'truncated_normal')
+  #kernel_init: Initializer = nn.initializers.variance_scaling(
+  #    1.0, 'fan_in', 'truncated_normal')
+  kernel_init: NdInitializer = nd_dense_init(1.0, 'fan_in', 'truncated_normal')
   intermediate_dropout_rate: float = 0.1
   dtype: Any = jnp.float32
 
@@ -597,18 +706,28 @@ class MlpBlock(nn.Module):
     """Applies Transformer MlpBlock module."""
     # Iterate over specified MLP input activation functions.
     # e.g. ('relu',) or ('linear', 'gelu') for gated-gelu.
-    #activations = []
+    activations = []
+    xs = DenseGeneral((len(self.activations), self.intermediate_dim),
+                      dtype=self.dtype,
+                      kernel_init=self.kernel_init,
+                      kernel_out_axis=(2,),
+                      kernel_axes=('embed', 'stack', 'mlp'),
+                      name='wi_fused')(
+                          inputs)
+    xs = with_sharding_constraint(xs, ('batch', 'length', 'stack', 'mlp'))
     for idx, act_fn in enumerate(self.activations):
-      dense_name = 'wi' if len(self.activations) == 1 else f'wi_{idx}'
-      x = DenseGeneral(
-          self.intermediate_dim,
-          dtype=self.dtype,
-          kernel_init=self.kernel_init,
-          kernel_axes=('embed', 'mlp'),
-          name=dense_name)(
-              inputs)
+      x = jnp.squeeze(lax.dynamic_slice_in_dim(xs, idx, 1, -2), -2)
+      x = with_sharding_constraint(x, ('batch', 'length', 'mlp'))
+      # dense_name = 'wi' if len(self.activations) == 1 else f'wi_{idx}'
+      # x = DenseGeneral(
+      #     self.intermediate_dim,
+      #     dtype=self.dtype,
+      #     kernel_init=self.kernel_init,
+      #     kernel_axes=('embed', 'mlp'),
+      #     name=dense_name)(
+      #         inputs)
       x = _convert_to_activation_function(act_fn)(x)
-    #  activations.append(x)
+      activations.append(x)
 
     # Take elementwise product of above intermediate activations.
     #x = functools.reduce(operator.mul, activations)
@@ -646,7 +765,7 @@ class Embed(nn.Module):
   dtype: DType = jnp.float32
   attend_dtype: Optional[DType] = None
   embedding_init: Initializer = default_embed_init
-  one_hot: bool = False
+  one_hot: bool = True
   embedding: Array = dataclasses.field(init=False)
 
   def setup(self):

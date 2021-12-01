@@ -208,12 +208,12 @@ class Decoder(nn.Module):
 
     if cfg.remat_policy not in (None, 'none'):
       if cfg.remat_policy == 'minimal':
-        policy = jax.checkpoint_policies.checkpoint_dots
+        policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
       else:
         policy = None
       BlockLayer = remat(  # pylint: disable=invalid-name
           BlockLayer,
-          prevent_cse=True,
+          prevent_cse=not cfg.scan_layers,
           policy=policy,
           static_argnums=(2, 3, 5))
     if cfg.scan_layers:
