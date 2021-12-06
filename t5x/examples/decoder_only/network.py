@@ -76,11 +76,11 @@ class DecoderLayer(nn.Module):
         name='relpos_bias')(l, l, False)
 
     # `inputs` is layer input with a shape [batch, length, emb_dim].
-    #inputs = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
-    #x = layers.LayerNorm(
-    #    dtype=cfg.dtype, name='pre_self_attention_layer_norm')(
-    #        inputs)
-    #x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
+    inputs = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
+    x = layers.LayerNorm(
+        dtype=cfg.dtype, name='pre_self_attention_layer_norm')(
+            inputs)
+    x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
 
     # Self-attention block
     x = layers.MultiHeadDotProductAttention(
@@ -105,7 +105,7 @@ class DecoderLayer(nn.Module):
             x, deterministic=deterministic)
     #x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     x = x + inputs
-    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    #x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
 
     # MLP block.
     y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
@@ -203,6 +203,7 @@ class Decoder(nn.Module):
         rate=cfg.dropout_rate, broadcast_dims=(-2,), name='input_dropout')(
             y, deterministic=deterministic)
     y = y.astype(cfg.dtype)
+    y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
 
     BlockLayer = DecoderLayer
 
@@ -254,7 +255,8 @@ class Decoder(nn.Module):
                 prefill=prefill,
                 prefill_lengths=prefill_lengths)
 
-    y = layers.LayerNorm(dtype=cfg.dtype, name='decoder_norm')(y)
+    #y = layers.LayerNorm(dtype=cfg.dtype, name='decoder_norm')(y)
+    y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
     y = nn.Dropout(
         rate=cfg.dropout_rate, broadcast_dims=(-2,), name='output_dropout')(
             y, deterministic=deterministic)

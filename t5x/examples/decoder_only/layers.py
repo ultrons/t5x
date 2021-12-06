@@ -580,7 +580,7 @@ class MultiHeadDotProductAttention(nn.Module):
         deterministic=deterministic,
         dtype=self.dtype,
         float32_logits=self.float32_logits)
-    x = with_sharding_constraint(x, ('batch', 'length', 'heads', 'joined_kv'))
+    x = with_sharding_constraint(x, ('batch', 'length', 'heads', 'kv'))
     # Back to the original inputs dimensions.
     out = DenseGeneral(
         features=inputs_q.shape[-1],  # output dim is set to the input dim.
@@ -707,13 +707,14 @@ class MlpBlock(nn.Module):
     # Iterate over specified MLP input activation functions.
     # e.g. ('relu',) or ('linear', 'gelu') for gated-gelu.
     activations = []
+    x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
     xs = DenseGeneral((len(self.activations), self.intermediate_dim),
                       dtype=self.dtype,
                       kernel_init=self.kernel_init,
                       kernel_out_axis=(2,),
                       kernel_axes=('embed', 'stack', 'mlp'),
                       name='wi_fused')(
-                          inputs)
+                          x)
     xs = with_sharding_constraint(xs, ('batch', 'length', 'stack', 'mlp'))
     for idx, act_fn in enumerate(self.activations):
       x = jnp.squeeze(lax.dynamic_slice_in_dim(xs, idx, 1, -2), -2)

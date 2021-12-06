@@ -66,7 +66,7 @@ partitioning.ModelBasedPjitPartitioner:
       ('vocab', 'model'),
       ('mlp', 'model'),
       ('heads', 'model'),
-      ('joined_kv', 'model'),
+      ('joined_kv', None),
       ('kv', None),
       ('embed', 'model'),
       ('embed', 'data'),
