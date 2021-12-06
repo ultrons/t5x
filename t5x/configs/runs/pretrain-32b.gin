@@ -69,7 +69,7 @@ partitioning.ModelBasedPjitPartitioner:
       ('joined_kv', None),
       ('kv', None),
       #('embed', 'model'),
-      ('embed', 'data'),
+      ('embed', None),
       ('relpos_buckets', None),
       ('length', None),
       ('layers', None),
