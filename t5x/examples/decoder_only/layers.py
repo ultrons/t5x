@@ -944,6 +944,7 @@ class LayerNorm(nn.Module):
   @nn.compact
   def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
     """Applies layer normalization on the input."""
+    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     x = jnp.asarray(x, jnp.float32)
     features = x.shape[-1]
     mean2 = jnp.mean(lax.square(x), axis=-1, keepdims=True)
@@ -952,7 +953,9 @@ class LayerNorm(nn.Module):
         'scale', self.scale_init, (features,), jnp.float32, axes=('embed',))
 
     scale = jnp.asarray(scale, self.dtype)
-    return y * scale
+    y = y * scale
+    y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
+    return y
 
 
 #------------------------------------------------------------------------------

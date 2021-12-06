@@ -103,20 +103,20 @@ class DecoderLayer(nn.Module):
         broadcast_dims=(-2,),
         name='post_self_attention_dropout')(
             x, deterministic=deterministic)
-    #x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     x = x + inputs
-    #x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
 
     # MLP block.
-    y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
-    y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
+    #y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
+    #y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
     y = layers.MlpBlock(
         intermediate_dim=cfg.mlp_dim,
         activations=cfg.mlp_activations,
         intermediate_dropout_rate=cfg.dropout_rate,
         dtype=cfg.dtype,
         name='mlp',
-    )(y, deterministic=deterministic)
+    )(x, deterministic=deterministic)
     y = nn.Dropout(
         rate=cfg.dropout_rate, broadcast_dims=(-2,), name='post_mlp_dropout')(
             y, deterministic=deterministic)
@@ -255,7 +255,8 @@ class Decoder(nn.Module):
                 prefill=prefill,
                 prefill_lengths=prefill_lengths)
 
-    #y = layers.LayerNorm(dtype=cfg.dtype, name='decoder_norm')(y)
+    y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
+    y = layers.LayerNorm(dtype=cfg.dtype, name='decoder_norm')(y)
     y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
     y = nn.Dropout(
         rate=cfg.dropout_rate, broadcast_dims=(-2,), name='output_dropout')(
