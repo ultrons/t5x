@@ -708,6 +708,7 @@ class MlpBlock(nn.Module):
     # e.g. ('relu',) or ('linear', 'gelu') for gated-gelu.
     activations = []
     x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
+    #x = LayerNorm(dtype=jnp.float32, name='pre_mlp_layer_norm')(x)
     xs = DenseGeneral((len(self.activations), self.intermediate_dim),
                       dtype=self.dtype,
                       kernel_init=self.kernel_init,

@@ -108,8 +108,8 @@ class DecoderLayer(nn.Module):
     x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
 
     # MLP block.
-    #y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
-    #y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
+    y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
+    y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
     y = layers.MlpBlock(
         intermediate_dim=cfg.mlp_dim,
         activations=cfg.mlp_activations,
