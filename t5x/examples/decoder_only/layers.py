@@ -708,31 +708,19 @@ class MlpBlock(nn.Module):
     # e.g. ('relu',) or ('linear', 'gelu') for gated-gelu.
     activations = []
     x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
-    #x = LayerNorm(dtype=jnp.float32, name='pre_mlp_layer_norm')(x)
-    xs = DenseGeneral((len(self.activations), self.intermediate_dim),
-                      dtype=self.dtype,
-                      kernel_init=self.kernel_init,
-                      kernel_out_axis=(2,),
-                      kernel_axes=('embed', 'stack', 'mlp'),
-                      name='wi_fused')(
-                          x)
-    xs = with_sharding_constraint(xs, ('batch', 'length', 'stack', 'mlp'))
     for idx, act_fn in enumerate(self.activations):
-      x = jnp.squeeze(lax.dynamic_slice_in_dim(xs, idx, 1, -2), -2)
-      x = with_sharding_constraint(x, ('batch', 'length', 'mlp'))
-      # dense_name = 'wi' if len(self.activations) == 1 else f'wi_{idx}'
-      # x = DenseGeneral(
-      #     self.intermediate_dim,
-      #     dtype=self.dtype,
-      #     kernel_init=self.kernel_init,
-      #     kernel_axes=('embed', 'mlp'),
-      #     name=dense_name)(
-      #         inputs)
+      dense_name = 'wi' if len(self.activations) == 1 else f'wi_{idx}'
+      x = DenseGeneral(
+           self.intermediate_dim,
+           dtype=self.dtype,
+           kernel_init=self.kernel_init,
+           kernel_axes=('embed', 'mlp'),
+           name=dense_name)(
+               inputs)
       x = _convert_to_activation_function(act_fn)(x)
       activations.append(x)
 
     # Take elementwise product of above intermediate activations.
-    #x = functools.reduce(operator.mul, activations)
     # Apply dropout and final dense output projection.
     x = with_sharding_constraint(x, ('batch', 'length', 'mlp'))
     x = nn.Dropout(
