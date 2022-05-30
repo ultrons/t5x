@@ -263,7 +263,7 @@ class BaseTrainer(abc.ABC):
     for i in range(num_steps):
       logging.log_every_n_seconds(logging.INFO, "Training: step %d.", 10, i)
       if i == profile_start_step and not self.stop_profiling:
-          jax.profiler.start_trace(f"{self.summary_dir}/profile-log")
+          jax.profiler.start_trace(f"/home/sivaibhav/profile-log")
       # Use pre-compiled step, if available.
       train_step_fn = self._compiled_train_step or self._partitioned_train_step
       with jax.profiler.StepTraceAnnotation(
