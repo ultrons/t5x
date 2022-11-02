@@ -7,7 +7,7 @@ export XLA_FLAGS="--xla_dump_to=./xla.d"
 python3 t5x/train.py \
   --gin_search_paths=/home/sivaibhav/t5x \
   --gin_file=/home/sivaibhav/t5x/t5x/configs/runs/pretrain-test.gin \
-  --gin_file=./t5x/examples/decoder_only/models/config-test.gin \
+  --gin_file=./t5x/examples/scalable_decoder_only/models/config-test.gin \
   --gin.MIXTURE_OR_TASK_NAME="'wikipedia_20190301.en_v003_unsupervised'" \
   --gin.MIXTURE_OR_TASK_MODULE="'t5.data.tasks'" \
   --gin.MODEL_DIR="'${MODEL_DIR}'" \
