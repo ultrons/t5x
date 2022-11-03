@@ -55,7 +55,7 @@ network.TransformerConfig:
   dtype = 'bfloat16'
   emb_dim = 8192
   num_heads = 64
-  num_layers = 12
+  num_layers = 6
   head_dim = 128
   mlp_dim = 32768
   mlp_activations = ('gelu',)
