@@ -60,10 +60,11 @@ train_script.train:
   use_hardware_rng = %USE_HARDWARE_RNG
   summarize_config_fn = @gin_utils.summarize_gin_config
 
-LOGICAL_AXIS_RULES = @partitioning.standard_logical_axis_rules()
+partitioning.standard_logical_axis_rules:
   activation_partitioning_dims = 2
   parameter_partitioning_dims = 2
 
+LOGICAL_AXIS_RULES = @partitioning.standard_logical_axis_rules()
 
 partitioning.PjitPartitioner:
   model_parallel_submesh = (2,1,1,1)

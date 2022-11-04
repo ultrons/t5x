@@ -485,7 +485,7 @@ class BaseTrainer(abc.ABC):
     """Runs the train loop for the given number of steps."""
     import jax
     server = jax.profiler.start_server(9999)
-    profile_start_step = 10
+    profile_start_step = 100
     profile_steps = 5
     metrics = None
     # Use pre-compiled step, if available.
