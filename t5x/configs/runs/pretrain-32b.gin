@@ -29,7 +29,7 @@ MIXTURE_OR_TASK_NAME = %gin.REQUIRED
 TASK_FEATURE_LENGTHS = %gin.REQUIRED
 TRAIN_STEPS = %gin.REQUIRED
 MODEL_DIR = %gin.REQUIRED
-BATCH_SIZE = 512
+BATCH_SIZE = 256
 USE_CACHED_TASKS = False
 
 # DEPRECATED: Import the this module in your gin file.
@@ -61,8 +61,8 @@ train_script.train:
   summarize_config_fn = @gin_utils.summarize_gin_config
 
 partitioning.standard_logical_axis_rules:
-  activation_partitioning_dims = 2
-  parameter_partitioning_dims = 2
+  activation_partitioning_dims = 1
+  parameter_partitioning_dims = 1
 
 LOGICAL_AXIS_RULES = @partitioning.standard_logical_axis_rules()
 
