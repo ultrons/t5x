@@ -62,7 +62,7 @@ train_script.train:
 
 partitioning.standard_logical_axis_rules:
   activation_partitioning_dims = 1
-  parameter_partitioning_dims = 1
+  parameter_partitioning_dims = 2
 
 LOGICAL_AXIS_RULES = @partitioning.standard_logical_axis_rules()
 
