@@ -120,5 +120,5 @@ trainer.Trainer:
   learning_rate_fn = @utils.create_learning_rate_scheduler()
 utils.create_learning_rate_scheduler:
   factors = 'constant * rsqrt_decay'
-  base_learning_rate = 1.0
+  base_learning_rate = 0.01
   warmup_steps = 10000  # 10k to keep consistent with T5/MTF defaults.
