@@ -62,4 +62,4 @@ network.TransformerConfig:
   dropout_rate = %DROPOUT_RATE
   logits_via_embedding = True
   scan_layers = True
-  remat_policy = 'full'
+  remat_policy = 'minimal'
