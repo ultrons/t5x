@@ -105,6 +105,7 @@ class DecoderLayer(nn.Module):
             decode=decode,
             prefill=prefill,
             prefill_lengths=prefill_lengths)
+
     x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     x = nn.Dropout(
         rate=cfg.dropout_rate,
@@ -122,7 +123,14 @@ class DecoderLayer(nn.Module):
     # MLP block.
     #y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
     #y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
-    y1 = layers.MlpBlock(
+    MLP = layers.MlpBlock
+    MLP = remat(  # pylint: disable=invalid-name
+          MLP,
+          prevent_cse=not cfg.scan_layers,
+          policy=policy,
+          static_argnums=(1)
+          )
+    y1 = MLP(
         intermediate_dim=cfg.mlp_dim,
         activations=cfg.mlp_activations,
         intermediate_dropout_rate=cfg.dropout_rate,
