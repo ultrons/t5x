@@ -83,7 +83,15 @@ class DecoderLayer(nn.Module):
     x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
 
     # Self-attention block
-    x = layers.MultiHeadDotProductAttention(
+    MHA = layers.MultiHeadDotProductAttention
+    policy = None
+    MHA = remat(  # pylint: disable=invalid-name
+          MHA,
+          prevent_cse=not cfg.scan_layers,
+          policy=policy,
+          static_argnums=(3, 4, 5))
+
+    x = MHA(
         num_heads=cfg.num_heads,
         dtype=cfg.dtype,
         head_dim=cfg.head_dim,
