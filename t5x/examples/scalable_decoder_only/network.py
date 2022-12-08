@@ -125,7 +125,7 @@ class DecoderLayer(nn.Module):
     #y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
     #y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
     MLP = layers.MlpBlock
-    policy = jax.checkpoint_policies.nothing_saveable
+    policy = jax.checkpoint_policies.everything_saveable
     MLP = remat(  # pylint: disable=invalid-name
           MLP,
           prevent_cse=not cfg.scan_layers,
@@ -235,7 +235,7 @@ class Decoder(nn.Module):
         policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
       else:
         #policy = checkpoint_dots
-        policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
+        policy = None
       BlockLayer = remat(  # pylint: disable=invalid-name
           BlockLayer,
           prevent_cse=not cfg.scan_layers,
