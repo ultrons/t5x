@@ -103,12 +103,13 @@ class DecoderLayer(nn.Module):
         broadcast_dims=(-2,),
         name='post_self_attention_dropout')(
             x, deterministic=deterministic)
+    x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
     # Parallel attention formulation
     # cf:
     # y = input + MLP(LayerNorm(input)) + Attention(LayerNorm(input))
     # let's call the second term y1
     y1 = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(inputs)
-    #x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+    y1 = with_sharding_constraint(y1, ('batch', 'length', 'embed'))
 
     # MLP block.
     #y = layers.LayerNorm(dtype=cfg.dtype, name='pre_mlp_layer_norm')(x)
@@ -123,6 +124,7 @@ class DecoderLayer(nn.Module):
     y1 = nn.Dropout(
         rate=cfg.dropout_rate, broadcast_dims=(-2,), name='post_mlp_dropout')(
             y1, deterministic=deterministic)
+    y1 = with_sharding_constraint(y1, ('batch', 'length', 'embed'))
     y = inputs + y1 + x
     y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
 
