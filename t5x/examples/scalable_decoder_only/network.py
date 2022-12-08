@@ -128,7 +128,7 @@ class DecoderLayer(nn.Module):
           MLP,
           prevent_cse=not cfg.scan_layers,
           policy=policy,
-          static_argnums=(1)
+          static_argnums=(1,)
           )
     y1 = MLP(
         intermediate_dim=cfg.mlp_dim,
