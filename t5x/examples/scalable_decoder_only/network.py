@@ -77,15 +77,7 @@ class DecoderLayer(nn.Module):
 
     # `inputs` is layer input with a shape [batch, length, emb_dim].
     inputs = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
-    LAYER_NORM = layers.LayerNorm
-    policy = None
-    LAYER_NORM = remat(  # pylint: disable=invalid-name
-          LAYER_NORM,
-          prevent_cse=not cfg.scan_layers,
-          policy=policy
-          )
-
-    x = LAYER_NORM(
+    x = layers.LayerNorm(
         dtype=cfg.dtype, name='pre_self_attention_layer_norm')(
             inputs)
     x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
