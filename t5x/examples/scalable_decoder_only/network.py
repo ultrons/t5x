@@ -237,7 +237,7 @@ class Decoder(nn.Module):
         policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
       else:
         #policy = checkpoint_dots
-        policy = None
+        policy = jax.checkpoint_policies.checkpoint_dots
       BlockLayer = remat(  # pylint: disable=invalid-name
           BlockLayer,
           prevent_cse=not cfg.scan_layers,
