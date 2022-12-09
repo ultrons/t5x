@@ -85,7 +85,7 @@ class DecoderLayer(nn.Module):
     # Self-attention block
     MHA = layers.MultiHeadDotProductAttention
     #policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
-    policy = None
+    policy = jax.checkpoint_policies.everything_saveable
     MHA = remat(  # pylint: disable=invalid-name
           MHA,
           prevent_cse=not cfg.scan_layers,
