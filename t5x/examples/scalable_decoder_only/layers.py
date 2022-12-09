@@ -716,7 +716,6 @@ class MlpBlock(nn.Module):
     """Applies Transformer MlpBlock module."""
     # Iterate over specified MLP input activation functions.
     # e.g. ('relu',) or ('linear', 'gelu') for gated-gelu.
-    activations = []
     x = with_sharding_constraint(inputs, ('batch', 'length', 'embed'))
     for idx, act_fn in enumerate(self.activations):
       dense_name = 'wi' if len(self.activations) == 1 else f'wi_{idx}'
@@ -728,7 +727,7 @@ class MlpBlock(nn.Module):
            name=dense_name)(
                inputs)
       x = _convert_to_activation_function(act_fn)(x)
-      activations.append(x)
+      x = checkpoint_name(x, f'mlp_act_{idx}')
 
     # Take elementwise product of above intermediate activations.
     # Apply dropout and final dense output projection.
@@ -743,6 +742,7 @@ class MlpBlock(nn.Module):
         kernel_axes=('mlp', 'embed'),
         name='wo')(
             x)
+    output = checkpoint_name(output, 'mlp_out')
 
     output = with_sharding_constraint(output, ('batch', 'length', 'embed'))
     return output
