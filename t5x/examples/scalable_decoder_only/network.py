@@ -131,7 +131,7 @@ class DecoderLayer(nn.Module):
     MLP = layers.MlpBlock
     #policy = None
     policy = jax.checkpoint_policies.save_only_these_names(
-         'mlp_out', 'mlp_int')
+          'mlp_int')
     MLP = remat(  # pylint: disable=invalid-name
           MLP,
           prevent_cse=not cfg.scan_layers,
