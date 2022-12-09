@@ -315,12 +315,12 @@ class DecoderWrapper(nn.Module):
     self.decoder = Decoder(self.config, name='decoder')
 
   def __call__(self, *args, **kwargs):
-      DEC = self.decoder
-      policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
-      DEC = remat(  # pylint: disable=invalid-name
-          DEC,
-          prevent_cse=False,
-          policy=policy,
-          static_argnums=(7, 8))
+    DEC = self.decoder
+    policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
+    DEC = remat(  # pylint: disable=invalid-name
+        DEC,
+        prevent_cse=False,
+        policy=policy,
+        static_argnums=(7, 8))
 
     return DEC(*args, **kwargs)
