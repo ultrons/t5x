@@ -88,7 +88,7 @@ class DecoderLayer(nn.Module):
     #policy = jax.checkpoint_policies.everything_saveable
     #policy = jax.checkpoint_policies.save_any_names_but_these(
     policy = jax.checkpoint_policies.save_only_these_names(
-         'combined_qkv_proj', 'context')
+         'combined_qkv_proj')
         #policy = jax.checkpoint_policies.save_any_names_but_these(
     MHA = remat(  # pylint: disable=invalid-name
           MHA,
