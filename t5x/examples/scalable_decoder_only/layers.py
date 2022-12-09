@@ -727,7 +727,7 @@ class MlpBlock(nn.Module):
            name=dense_name)(
                inputs)
       x = _convert_to_activation_function(act_fn)(x)
-      x = checkpoint_name(x, f'mlp_act_{idx}')
+      x = checkpoint_name(x, f'mlp_int')
 
     # Take elementwise product of above intermediate activations.
     # Apply dropout and final dense output projection.
