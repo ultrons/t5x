@@ -294,15 +294,8 @@ class Decoder(nn.Module):
       # Correctly normalize pre-softmax logits for this shared case.
       logits = logits / jnp.sqrt(y.shape[-1])
     else:
-      OUTPUT_LAYER = layers.DenseGeneral
-      policy = None
-      #policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
-      OUTPUT_LAYER = remat(  # pylint: disable=invalid-name
-            OUTPUT_LAYER,
-            prevent_cse=not cfg.scan_layers,
-            policy=policy)
       # Use a separate dense layer for the logit transform.
-      logits = OUTPUT_LAYER(
+      logits = layers.DenseGeneral(
           cfg.vocab_size,
           dtype=jnp.float32,  # Use float32 for stabiliity.
           kernel_axes=('embed', 'vocab'),
@@ -322,4 +315,12 @@ class DecoderWrapper(nn.Module):
     self.decoder = Decoder(self.config, name='decoder')
 
   def __call__(self, *args, **kwargs):
-    return self.decoder(*args, **kwargs)
+      DEC = self.decoder
+      policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
+      DEC = remat(  # pylint: disable=invalid-name
+          DEC,
+          prevent_cse=False,
+          policy=policy,
+          static_argnums=(7, 8))
+
+    return DEC(*args, **kwargs)
