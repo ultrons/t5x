@@ -16,6 +16,7 @@
 
 # pylint: disable=attribute-defined-outside-init,g-bare-generic
 
+from jax.ad_checkpoint import checkpoint_name
 import dataclasses
 import functools
 import operator
@@ -181,7 +182,8 @@ def dot_product_attention(query: Array,
     attn_weights = attn_weights * multiplier
 
   # Take the linear combination of `value`.
-  return jnp.einsum('bhqk,bkhd->bqhd', attn_weights, value)
+  context = jnp.einsum('bhqk,bkhd->bqhd', attn_weights, value)
+  context = checkpoint_name(context, 'context')
 
 
 class MultiHeadDotProductAttention(nn.Module):
@@ -416,11 +418,15 @@ class MultiHeadDotProductAttention(nn.Module):
           kernel_out_axis=(2, 3),
           dtype=self.dtype)(
               inputs_q)
+      qkv = checkpoint_name(qkv, 'combined_qkv_proj')
       qkv = with_sharding_constraint(
           qkv, ('batch', 'length', 'stack', 'heads', 'kv'))
       query = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 0, 1, -3), -3)
       key = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 1, 1, -3), -3)
       value = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 2, 1, -3), -3)
+      query = checkpoint_name(query, 'query_proj')
+      key = checkpoint_name(key, 'key_proj')
+      value = checkpoint_name(value, 'value_proj')
     # else:
     #   # cross attention case
     #   query = DenseGeneral(
@@ -591,6 +597,7 @@ class MultiHeadDotProductAttention(nn.Module):
         name='out')(
             x)
     out = with_sharding_constraint(out, ('batch', 'length', 'embed'))
+    out = checkpoint_name(out, 'out_proj')
     return out
 
 
