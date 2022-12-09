@@ -216,7 +216,7 @@ class Decoder(nn.Module):
       decoder_mask = layers.make_decoder_mask(
           decoder_target_tokens=decoder_target_tokens,
           #dtype=cfg.dtype,
-          dtype='int8',
+          dtype=cfg.dtype,
           decoder_causal_attention=decoder_causal_attention,
           decoder_segment_ids=decoder_segment_ids)
 
