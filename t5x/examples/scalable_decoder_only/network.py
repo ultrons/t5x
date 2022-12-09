@@ -86,11 +86,11 @@ class DecoderLayer(nn.Module):
     MHA = layers.MultiHeadDotProductAttention
     #policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
     policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
-    MHA = remat(  # pylint: disable=invalid-name
-          MHA,
-          prevent_cse=not cfg.scan_layers,
-          policy=policy,
-          static_argnums=(3, 4, 5))
+    #MHA = remat(  # pylint: disable=invalid-name
+    #      MHA,
+    #      prevent_cse=not cfg.scan_layers,
+    #      policy=policy,
+    #      static_argnums=(3, 4, 5))
 
     x = MHA(
         num_heads=cfg.num_heads,
@@ -234,13 +234,13 @@ class Decoder(nn.Module):
 
     if cfg.remat_policy not in (None, 'none'):
       if cfg.remat_policy == 'minimal':
-        #policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
+        policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
         #policy = jax.checkpoint_policies.save_only_these_names(
         #  'combined_qkv_proj', 'query_proj', 'value_proj', 'key_proj',
         #  'context', 'out_proj')
-        policy = jax.checkpoint_policies.save_any_names_but_these(
-          'combined_qkv_proj', 'query_proj', 'value_proj', 'key_proj',
-          'context', 'out_proj')
+        #policy = jax.checkpoint_policies.save_any_names_but_these(
+        #  'combined_qkv_proj', 'query_proj', 'value_proj', 'key_proj',
+        #  'context', 'out_proj')
 
       else:
         #policy = checkpoint_dots
