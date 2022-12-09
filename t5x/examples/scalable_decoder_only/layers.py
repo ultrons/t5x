@@ -184,6 +184,9 @@ def dot_product_attention(query: Array,
   # Take the linear combination of `value`.
   context = jnp.einsum('bhqk,bkhd->bqhd', attn_weights, value)
   context = checkpoint_name(context, 'context')
+  return context
+
+  
 
 
 class MultiHeadDotProductAttention(nn.Module):
