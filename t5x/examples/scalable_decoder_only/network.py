@@ -128,12 +128,12 @@ class DecoderLayer(nn.Module):
     policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
     #policy = None
     policy = None
-    MLP = remat(  # pylint: disable=invalid-name
-          MLP,
-          prevent_cse=not cfg.scan_layers,
-          policy=policy,
-          static_argnums=(1,)
-          )
+    #MLP = remat(  # pylint: disable=invalid-name
+    #      MLP,
+    #      prevent_cse=not cfg.scan_layers,
+    #      policy=policy,
+    #      static_argnums=(1,)
+    #      )
     y1 = MLP(
         intermediate_dim=cfg.mlp_dim,
         activations=cfg.mlp_activations,
