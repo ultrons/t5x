@@ -84,8 +84,8 @@ class DecoderLayer(nn.Module):
 
     # Self-attention block
     MHA = layers.MultiHeadDotProductAttention
-    policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
-    #policy = None
+    #policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
+    policy = None
     MHA = remat(  # pylint: disable=invalid-name
           MHA,
           prevent_cse=not cfg.scan_layers,
@@ -126,7 +126,8 @@ class DecoderLayer(nn.Module):
     #y = with_sharding_constraint(y, ('batch', 'length', 'embed'))
     MLP = layers.MlpBlock
     #policy = None
-    policy = None
+    policy = jax.checkpoint_policies.save_only_these_names(
+         'mlp_out')
     MLP = remat(  # pylint: disable=invalid-name
           MLP,
           prevent_cse=not cfg.scan_layers,
