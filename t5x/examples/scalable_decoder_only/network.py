@@ -242,7 +242,7 @@ class Decoder(nn.Module):
       if cfg.remat_policy == 'minimal':
         policy_1 = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
         policy_2 = jax.checkpoint_policies.save_only_these_names(
-          'combined_qkv_proj', 'query_proj', 'value_proj', 'key_proj',
+          'combined_qkv_proj',
          'out_proj', 'context')
         policy = jax.checkpoint_policies.save_from_both_policies(policy_1, policy_2)
         #policy = jax.checkpoint_policies.save_any_names_but_these(
