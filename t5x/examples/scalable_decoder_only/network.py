@@ -91,11 +91,11 @@ class DecoderLayer(nn.Module):
        'context')
       #'combined_qkv_proj', 'context', 'out_proj', 'query_proj', 'key_proj', 'value_proj')
         #policy = jax.checkpoint_policies.save_any_names_but_these(
-    MHA = remat(  # pylint: disable=invalid-name
-          MHA,
-          prevent_cse=not cfg.scan_layers,
-          policy=policy,
-          static_argnums=(3, 4, 5))
+    #MHA = remat(  # pylint: disable=invalid-name
+    #      MHA,
+    #      prevent_cse=not cfg.scan_layers,
+    #      policy=policy,
+    #      static_argnums=(3, 4, 5))
 
     x = MHA(
         num_heads=cfg.num_heads,
@@ -133,12 +133,12 @@ class DecoderLayer(nn.Module):
     policy = None
     #policy = jax.checkpoint_policies.save_only_these_names(
     #     'mlp_int')
-    MLP = remat(  # pylint: disable=invalid-name
-          MLP,
-          prevent_cse=not cfg.scan_layers,
-          policy=policy,
-          static_argnums=(1,)
-          )
+    #MLP = remat(  # pylint: disable=invalid-name
+    #      MLP,
+    #      prevent_cse=not cfg.scan_layers,
+    #      policy=policy,
+    #      static_argnums=(1,)
+    #      )
     y1 = MLP(
         intermediate_dim=cfg.mlp_dim,
         activations=cfg.mlp_activations,
