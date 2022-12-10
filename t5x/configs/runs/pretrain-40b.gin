@@ -61,7 +61,7 @@ train_script.train:
   summarize_config_fn = @gin_utils.summarize_gin_config
 
 partitioning.standard_logical_axis_rules:
-  activation_partitioning_dims = 2
+  activation_partitioning_dims = 1
   parameter_partitioning_dims = 2
 
 LOGICAL_AXIS_RULES = @partitioning.standard_logical_axis_rules()
