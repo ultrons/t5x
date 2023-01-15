@@ -186,7 +186,7 @@ def dot_product_attention(query: Array,
   context = checkpoint_name(context, 'context')
   return context
 
-  
+
 
 
 class MultiHeadDotProductAttention(nn.Module):
@@ -391,66 +391,25 @@ class MultiHeadDotProductAttention(nn.Module):
     Returns:
       output of shape `[batch, q_length, embed]`.
     """
-    # projection = functools.partial(
-    #     DenseGeneral,
-    #     axis=-1,
-    #     features=(self.num_heads, self.head_dim),
-    #     kernel_axes=('embed', 'joined_kv'),
-    #     dtype=self.dtype)
 
-    # # NOTE: T5 does not explicitly rescale the attention logits by
-    # #       1/sqrt(depth_kq)!  This is folded into the initializers of the
-    # #       linear transformations, which is equivalent under Adafactor.
-    # depth_scaling = jnp.sqrt(self.head_dim).astype(self.dtype)
-    # query_init = lambda *args: self.kernel_init(*args) / depth_scaling
-
-    # # Project inputs_q to multi-headed q/k/v
-    # # dimensions are then [batch, length, num_heads, head_dim]
-    # query = projection(kernel_init=query_init, name='query')(inputs_q)
-    # key = projection(kernel_init=self.kernel_init, name='key')(inputs_kv)
-    # value = projection(kernel_init=self.kernel_init, name='value')(inputs_kv)
-
-    # if inputs_q is inputs_kv:
-    if True:
-      # self attention case
-      qkv = DenseGeneral(
-          axis=-1,
-          features=(3, self.num_heads, self.head_dim),
-          kernel_axes=('embed', 'stack', 'heads', 'kv'),
-          kernel_init=self.kernel_init,
-          kernel_out_axis=(2, 3),
-          dtype=self.dtype)(
-              inputs_q)
-      qkv = checkpoint_name(qkv, 'combined_qkv_proj')
-      qkv = with_sharding_constraint(
-          qkv, ('batch', 'length', 'stack', 'heads', 'kv'))
-      query = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 0, 1, -3), -3)
-      key = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 1, 1, -3), -3)
-      value = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 2, 1, -3), -3)
-      query = checkpoint_name(query, 'query_proj')
-      key = checkpoint_name(key, 'key_proj')
-      value = checkpoint_name(value, 'value_proj')
-    # else:
-    #   # cross attention case
-    #   query = DenseGeneral(
-    #       axis=-1,
-    #       features=(self.num_heads, self.head_dim),
-    #       kernel_axes=('embed', 'heads', 'kv'),
-    #       kernel_init=self.kernel_init,
-    #       dtype=self.dtype)(
-    #           inputs_q)
-    #   kv = DenseGeneral(
-    #       axis=-1,
-    #       features=(2, self.num_heads, self.head_dim),
-    #       kernel_axes=('embed', 'stack', 'heads', 'kv'),
-    #       kernel_out_axis=(2, 3),
-    #       kernel_init=self.kernel_init,
-    #       dtype=self.dtype)(
-    #           inputs_kv)
-    #   kv = with_sharding_constraint(kv,
-    #                                 ('batch', 'length', 'stack', 'heads', 'kv'))
-    #   key = jnp.squeeze(lax.dynamic_slice_in_dim(kv, 1, 1, -3), -3)
-    #   value = jnp.squeeze(lax.dynamic_slice_in_dim(kv, 2, 1, -3), -3)
+    # self attention case
+    qkv = DenseGeneral(
+        axis=-1,
+        features=(3, self.num_heads, self.head_dim),
+        kernel_axes=('embed', 'stack', 'heads', 'kv'),
+        kernel_init=self.kernel_init,
+        kernel_out_axis=(2, 3),
+        dtype=self.dtype)(
+            inputs_q)
+    qkv = checkpoint_name(qkv, 'combined_qkv_proj')
+    qkv = with_sharding_constraint(
+        qkv, ('batch', 'length', 'stack', 'heads', 'kv'))
+    query = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 0, 1, -3), -3)
+    key = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 1, 1, -3), -3)
+    value = jnp.squeeze(lax.dynamic_slice_in_dim(qkv, 2, 1, -3), -3)
+    query = checkpoint_name(query, 'query_proj')
+    key = checkpoint_name(key, 'key_proj')
+    value = checkpoint_name(value, 'value_proj')
 
 
     query = with_sharding_constraint(query, ('batch', 'length', 'heads', 'kv'))

@@ -226,7 +226,7 @@ class Decoder(nn.Module):
         dtype=cfg.dtype,
         attend_dtype=jnp.float32,  # for logit training stability
         embedding_init=nn.initializers.normal(stddev=1.0),
-        one_hot=True,
+        one_hot=False,
         name='token_embedder')
     y = embedding(decoder_input_tokens.astype('int32'))
 
