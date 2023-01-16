@@ -84,8 +84,6 @@ class DecoderLayer(nn.Module):
 
     # Self-attention block
     MHA = layers.MultiHeadDotProductAttention
-    #policy = jax.checkpoint_policies.checkpoint_dots_with_no_batch_dims
-    #policy = jax.checkpoint_policies.everything_saveable
     #policy = jax.checkpoint_policies.save_any_names_but_these(
     policy = jax.checkpoint_policies.save_only_these_names(
        'context')
@@ -244,13 +242,8 @@ class Decoder(nn.Module):
         policy_2 = jax.checkpoint_policies.save_only_these_names(
           'combined_qkv_proj', 'query_proj', 'value_proj', 'key_proj',
          'out_proj', 'context')
-        policy = jax.checkpoint_policies.save_from_both_policies(policy_1, policy_2)
-        #policy = jax.checkpoint_policies.save_any_names_but_these(
-        #  'combined_qkv_proj', 'query_proj', 'value_proj', 'key_proj',
-        #  'context', 'out_proj')
-         # 'combined_qkv_proj', 'query_proj', 'value_proj', 'key_proj',
-         # 'context', 'out_proj', 'mlp_out', 'mlp_int')
-
+        #policy = jax.checkpoint_policies.save_from_both_policies(policy_1, policy_2)
+        policy = policy_2
       else:
         #policy = checkpoint_dots
         policy = None
