@@ -683,7 +683,7 @@ class MlpBlock(nn.Module):
            kernel_init=self.kernel_init,
            kernel_axes=('embed', 'mlp'),
            name=dense_name)(
-               inputs)
+               x)
       x = _convert_to_activation_function(act_fn)(x)
       x = checkpoint_name(x, f'mlp_int')
 
