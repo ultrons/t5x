@@ -141,6 +141,7 @@ def dot_product_attention(query: Array,
   Returns:
     Output of shape `[batch, length, num_heads, v_depth_per_head]`.
   """
+
   assert key.ndim == query.ndim == value.ndim, 'q, k, v must have same rank.'
   assert query.shape[:-3] == key.shape[:-3] == value.shape[:-3], (
       'q, k, v batch dims must match.')
@@ -393,11 +394,11 @@ class MultiHeadDotProductAttention(nn.Module):
 
     # self attention case
     qkv = DenseGeneral(
+        name='qkv',
         axis=-1,
         features=(3, self.num_heads, self.head_dim),
         kernel_axes=('embed', 'stack', 'heads', 'kv'),
         kernel_init=self.kernel_init,
-        kernel_out_axis=(2, 3),
         dtype=self.dtype)(
             inputs_q)
     qkv = checkpoint_name(qkv, 'combined_qkv_proj')

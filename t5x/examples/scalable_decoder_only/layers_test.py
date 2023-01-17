@@ -28,7 +28,7 @@ from jax import random
 from jax.nn import initializers
 import jax.numpy as jnp
 import numpy as np
-from t5x.examples.decoder_only import layers
+from t5x.examples.scalable_decoder_only import layers
 
 # Parse absl flags test_srcdir and test_tmpdir.
 jax.config.parse_flags_with_absl()
@@ -296,33 +296,48 @@ class AttentionTest(parameterized.TestCase):
 
     # Projection: [b, q, f] -> [b, q, h, d]
     # So the kernels have to be [f, h, d]
-    query_kernel = np.random.randn(f, h, d)
-    key_kernel = np.random.randn(f, h, d)
-    value_kernel = np.random.randn(f, h, d)
     # `out` calculation: [b, q, h, d] -> [b, q, f]
+    #query_kernel = np.random.randn(f, h, d)
+    #key_kernel = np.random.randn(f, h, d)
+    #value_kernel = np.random.randn(f, h, d)
     # So kernel has to be [h, d, f]
     out_kernel = np.random.randn(h, d, f)
+    #qkv_kernel = np.stack([query_kernel, key_kernel, value_kernel], axis=1)
+    qkv_kernel = np.random.randn(f,3, h, d)
+    query_kernel = qkv_kernel[:,0,:,:]
+    key_kernel = qkv_kernel[:,1,:,:]
+    value_kernel = qkv_kernel[:,2,:,:]
 
     params = {
-        'query': {
-            'kernel': query_kernel.reshape(f, -1)
-        },
-        'key': {
-            'kernel': key_kernel.reshape(f, -1)
-        },
-        'value': {
-            'kernel': value_kernel.reshape(f, -1)
-        },
+        'qkv': {
+            'kernel': qkv_kernel
+            },
         'out': {
-            'kernel': out_kernel.reshape(-1, f)
+            'kernel': out_kernel.reshape(h, d, f)
         }
     }
+    #params = {
+    #    'query': {
+    #        'kernel': query_kernel.reshape(f, -1)
+    #    },
+    #    'key': {
+    #        'kernel': key_kernel.reshape(f, -1)
+    #    },
+    #    'value': {
+    #        'kernel': value_kernel.reshape(f, -1)
+    #    },
+    #    'out': {
+    #        'kernel': out_kernel.reshape(-1, f)
+    #    }
+    #}
     y = layers.MultiHeadDotProductAttention(**args).apply(
         {'params': freeze(params)}, inputs_q, inputs_kv)
 
     query = np.einsum('bqf,fhd->bqhd', inputs_q, query_kernel)
     key = np.einsum('bkf,fhd->bkhd', inputs_kv, key_kernel)
     value = np.einsum('bkf,fhd->bkhd', inputs_kv, value_kernel)
+    depth = query.shape[-1]
+    query = query / np.sqrt(depth)
     logits = np.einsum('bqhd,bkhd->bhqk', query, key)
     weights = nn.softmax(logits, axis=-1)
     combined_value = np.einsum('bhqk,bkhd->bqhd', weights, value)
@@ -381,6 +396,8 @@ class AttentionTest(parameterized.TestCase):
     value = np.random.randn(b, k, h, d)
     bias = np.random.randn(b, h, q, k)
     attn_out = layers.dot_product_attention(query, key, value, bias=bias)
+    depth = query.shape[-1]
+    query = query / np.sqrt(depth)
     logits = np.einsum('bqhd,bkhd->bhqk', query, key)
     weights = jax.nn.softmax(logits + bias, axis=-1)
     expected = np.einsum('bhqk,bkhd->bqhd', weights, value)
