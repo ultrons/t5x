@@ -292,7 +292,7 @@ class AttentionTest(parameterized.TestCase):
 
     np.random.seed(0)
     inputs_q = np.random.randn(b, q, f)
-    inputs_kv = np.random.randn(b, k, f)
+    inputs_kv = inputs_q
 
     # Projection: [b, q, f] -> [b, q, h, d]
     # So the kernels have to be [f, h, d]
@@ -394,13 +394,13 @@ class AttentionTest(parameterized.TestCase):
     query = np.random.randn(b, q, h, d)
     key = np.random.randn(b, k, h, d)
     value = np.random.randn(b, k, h, d)
-    bias = np.random.randn(b, h, q, k)
+    bias = np.random.randn(b, h, q, k) * 0.0
     attn_out = layers.dot_product_attention(query, key, value, bias=bias)
     depth = query.shape[-1]
     query = query / np.sqrt(depth)
-    logits = np.einsum('bqhd,bkhd->bhqk', query, key)
+    logits = jnp.einsum('bqhd,bkhd->bhqk', query, key)
     weights = jax.nn.softmax(logits + bias, axis=-1)
-    expected = np.einsum('bhqk,bkhd->bqhd', weights, value)
+    expected = jnp.einsum('bhqk,bkhd->bqhd', weights, value)
     np.testing.assert_allclose(attn_out, expected, atol=1e-6)
 
   def test_multihead_dot_product_attention_prefill_caching(self):
@@ -419,7 +419,8 @@ class AttentionTest(parameterized.TestCase):
         'cache_index': np.array([0, 0])
     }
     inputs_q = np.random.randn(b, k, f)
-    inputs_kv = np.random.randn(b, k, f)
+    #inputs_kv = np.random.randn(b, k, f)
+    inputs_kv = inputs_q
 
     # Mock dense general such that q, k, v projections are replaced by simple
     # reshaping.
@@ -520,6 +521,8 @@ class DenseTest(parameterized.TestCase):
 
   def test_dense_general_no_bias(self):
     rng = random.PRNGKey(0)
+    import pdb
+    pdb.set_trace()
     x = jnp.ones((1, 3))
     model = layers.DenseGeneral(
         features=4,

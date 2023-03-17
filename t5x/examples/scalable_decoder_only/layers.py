@@ -724,7 +724,7 @@ class Embed(nn.Module):
   dtype: DType = jnp.float32
   attend_dtype: Optional[DType] = None
   embedding_init: Initializer = default_embed_init
-  one_hot: bool = True
+  one_hot: bool = False
   embedding: Array = dataclasses.field(init=False)
 
   def setup(self):
@@ -841,7 +841,7 @@ class RelativePositionBiases(nn.Module):
     return ret
 
   @nn.compact
-  def __call__(self, qlen, klen, bidirectional=True):
+  def __call__(self, qlen, klen, bidirectional=True, decode=False):
     """Produce relative position embedding attention biases.
 
     Args:
@@ -853,6 +853,32 @@ class RelativePositionBiases(nn.Module):
     Returns:
       output: `(1, len, q_len, k_len)` attention bias
     """
+    # bidirectional embeddings don't make sense when decoding (and break cache).
+    if decode and bidirectional:
+      raise ValueError(
+          'bidirectional RelativePositionBiases are not supported when '
+          '`decode=True`.')
+
+    # We only cache the bias if the model was already initialized, i.e. if this
+    # module is called with `model.apply` and `decode = True`. We raise an error
+    # if called with `model.init` and `decode = True`, since this can cache
+    # incorrect positional embeddings produced by random parameters.
+    is_initialized = self.has_variable('params', 'rel_embedding')
+    if decode and not is_initialized:
+      raise ValueError(
+          'decode-mode cannot be enabled during init. use model.apply to '
+          'initialize the decoding cache.')
+
+    # Return pre-computed relative position bias in cache during decode steps.
+    if decode and self.has_variable('cache', 'cached_bias'):
+      cached_bias = self.get_variable('cache', 'cached_bias')
+      expected_bias_shape = (1, self.num_heads, qlen, klen)
+      if cached_bias.shape != expected_bias_shape:
+        raise ValueError(f'The cached relative position attention bias was '
+                         f'expected to have shape {expected_bias_shape} but '
+                         f'instead has the shape {cached_bias.shape}.')
+      return cached_bias
+
     # TODO(levskaya): should we be computing this w. numpy as a program
     # constant?
     context_position = np.arange(qlen, dtype=jnp.int32)[:, None]
@@ -887,8 +913,14 @@ class RelativePositionBiases(nn.Module):
             ((), ())))  # no batched dims
     # Add a singleton batch dimension.
     # --> shape (1, num_heads, qlen, klen)
-    return values[jnp.newaxis, ...]
+    #return values[jnp.newaxis, ...]
+    out = values[jnp.newaxis, ...]
 
+    # Store computed relative position bias in cache after first calculation.
+    if decode:
+      _ = self.variable('cache', 'cached_bias', lambda: out)
+
+    return out
 
 #------------------------------------------------------------------------------
 # T5 Layernorm - no subtraction of mean or bias.
