@@ -6,8 +6,8 @@ export FLAX_PROFILE=1
 export MODEL_DIR="gs://sivaibhav-exp/t5x/t5x-models/benchmark/${ACCELERATOR_TYPE}-${EXP_PREFIX:=scale-ie}"
 export XLA_FLAGS="--xla_dump_to=./xla.d"
 python3 t5x/train.py \
-  --gin_search_paths=/home/sivaibhav/t5x \
-  --gin_file=/home/sivaibhav/t5x/t5x/configs/runs/pretrain-40b.gin \
+  --gin_search_paths=${HOME}/t5x \
+  --gin_file=${HOME}/t5x/t5x/configs/runs/pretrain-40b.gin \
   --gin_file=./t5x/examples/scalable_decoder_only/models/config-40b.gin \
   --gin.MIXTURE_OR_TASK_NAME="'wikipedia_20190301.en_v003_unsupervised'" \
   --gin.MIXTURE_OR_TASK_MODULE="'t5.data.tasks'" \

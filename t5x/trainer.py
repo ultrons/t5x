@@ -484,6 +484,8 @@ class BaseTrainer(abc.ABC):
             start_step: Optional[int] = None) -> ArrayMapFuture:
     """Runs the train loop for the given number of steps."""
     import jax
+    from pathlib import Path
+
     server = jax.profiler.start_server(9999)
     profile_start_step = 20
     profile_steps = 5
@@ -502,7 +504,8 @@ class BaseTrainer(abc.ABC):
         logging.log_every_n_seconds(logging.INFO, "Training: step %d", 10,
                                     step_num)
         if step_num == profile_start_step :
-            jax.profiler.start_trace(f"/home/sivaibhav/profile-log")
+            
+            jax.profiler.start_trace(f"{str(Path.home())}/profile-log")
         if step_num == profile_start_step + profile_steps:
             jax.profiler.stop_trace()
         with jax.profiler.StepTraceAnnotation("train", step_num=step_num):
