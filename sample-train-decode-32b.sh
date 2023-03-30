@@ -2,6 +2,7 @@
 #export LIBTPU_INIT_ARGS=--xla_tpu_allow_sharding_on_minor_dim
 export LIBTPU_INIT_ARGS="--xla_enable_async_all_gather=true"
 export FLAX_PROFILE=1
+export EXP_PREFIX=$$
 export MODEL_DIR="gs://sivaibhav-exp/t5x/t5x-models/benchmark/-${EXP_PREFIX:=scale}"
 python3 t5x/train.py \
   --gin_search_paths=${HOME}/t5x \
