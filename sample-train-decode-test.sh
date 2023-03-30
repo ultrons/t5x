@@ -2,9 +2,8 @@
 #export LIBTPU_INIT_ARGS=--xla_tpu_allow_sharding_on_minor_dim
 export LIBTPU_INIT_ARGS="--xla_enable_async_all_gather=true"
 export EXP_PREFIX=5b_b96_2d_param_2d_activation_$$
-export ACCELERATOR_TYPE=$(curl http://metadata.google.internal/computeMetadata/v1/instance/attributes/accelerator-type -H "Metadata-Flavor: Google")
+export MODEL_DIR="gs://sivaibhav-exp/t5x/t5x-models/benchmark/${EXP_PREFIX:=scale-ie}"
 export FLAX_PROFILE=1
-export MODEL_DIR="gs://sivaibhav-exp/t5x/t5x-models/benchmark/${ACCELERATOR_TYPE}-${EXP_PREFIX:=scale-ie}"
 export XLA_FLAGS="--xla_dump_to=./xla.d"
 python3 t5x/train.py \
   --gin_search_paths=${HOME}/t5x \
