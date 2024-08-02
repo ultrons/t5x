@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Fiddle-config helpers equivalent to t5x/configs/runs/pretrain.gin."""
+
 from collections.abc import Mapping
 import copy
 from typing import Optional, Union
@@ -53,6 +54,7 @@ def train(
     task_feature_lengths: Mapping[str, int],
     eval_steps: int = EVAL_STEPS,
     eval_period: int = EVAL_PERIOD,
+    relative_steps: Optional[int] = None,
     random_seed: Optional[int] = RANDOM_SEED,
     mixture_or_task_module: Optional[str] = None,
     use_hardware_rng: bool = USE_HARDWARE_RNG,
@@ -102,6 +104,7 @@ def train(
       total_steps=train_steps,
       eval_steps=eval_steps,
       eval_period=eval_period,
+      relative_steps=relative_steps,
       random_seed=random_seed,
       use_hardware_rng=use_hardware_rng,
       summarize_config_fn=config_utils.summarize_fiddle_config,

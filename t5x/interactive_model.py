@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -619,19 +619,14 @@ class InteractiveModel(abc.ABC):
     def compute_metrics_fn():
       task_metrics = []
       if predict_metric_fns:
-        task_metrics.extend(
-            [
-                metric_fn(targets, predictions)
-                for metric_fn in predict_metric_fns
-            ]
-        )
+        task_metrics.extend([
+            metric_fn(targets, predictions) for metric_fn in predict_metric_fns
+        ])
       if predict_with_aux_metric_fns:
-        task_metrics.extend(
-            [
-                metric_fn(targets, predictions, aux_values)
-                for metric_fn in predict_with_aux_metric_fns
-            ]
-        )
+        task_metrics.extend([
+            metric_fn(targets, predictions, aux_values)
+            for metric_fn in predict_with_aux_metric_fns
+        ])
       if score_metric_fns:
         is_tuple = isinstance(scores, tuple)
         if (not is_tuple and len(targets) != len(scores)) or (

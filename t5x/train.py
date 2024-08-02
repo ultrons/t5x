@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import gc
 import math
 import os
 import time
-from typing import Callable, Mapping, Optional, Sequence, Tuple, Type
+from typing import Callable, Dict, Mapping, Optional, Sequence, Tuple, Type
 
 # Set Linen to add profiling information when constructing Modules.
 # Must be set before flax imports.
@@ -108,6 +108,7 @@ def train(
     total_steps: int,
     eval_steps: int,
     eval_period: int,
+    relative_steps: Optional[int] = None,
     stats_period: Optional[int] = None,
     random_seed: Optional[int],
     use_hardware_rng: bool = False,
@@ -123,7 +124,7 @@ def train(
     train_state_initializer_cls: Type[
         utils.TrainStateInitializer
     ] = utils.TrainStateInitializer,
-    use_orbax: bool = False,
+    use_orbax: bool = True,
     verify_matching_vocabs_fn: Optional[
         Callable[[utils.DatasetConfig, models.BaseTransformerModel], None]
     ] = utils.verify_matching_vocabs,
@@ -154,6 +155,8 @@ def train(
     eval_steps: The number of batches to process for each train-eval loop.
     eval_period: The number of train steps between each evaluation (both
       train-eval and infer-eval).
+    relative_steps: The number of train steps to take relative to the current
+      step loaded from the checkpoint. If this is set, total_steps is ignored.
     stats_period: The number of train steps between writing scalar stats. If
       None, defaults to eval_period.
     random_seed: A random seed to use for dropout and initialization. If None, a
@@ -188,32 +191,20 @@ def train(
       matches the model vocabulary, if the model is a BaseTransformerModel
       instance. Should raise an exception on error.
     gc_period: The number of train steps between runs of the garbage collector.
-      If 0, the garbage collector will run at the normal frequency.
+      If 0, the garbage collector will run at the normal frequency. # BEGIN
+    training_eval_average_metrics: Averages the metric over the list of tasks
+      for training_eval (e.g., {'task_average/accuracy': ['task_a', 'task_b']}).
+    infer_eval_average_metrics: Averages the metric over the list of tasks for
+      infer_eval (e.g., {'task_average/accuracy': ['task_a', 'task_b']}). # END
 
   Returns:
     The tuple of (last_step, last_train_state).
   """
-  jax.monitoring.record_event('/jax/t5x/train/beacon')
   logging.info('Process ID: %d', jax.process_index())
   tf.io.gfile.makedirs(model_dir)
 
   if use_orbax:
     logging.info('Checkpointing with Orbax enabled.')
-    if (
-        checkpoint_cfg.save
-        and isinstance(
-            checkpoint_cfg.save.checkpointer_cls, pw_checkpoints.Checkpointer
-        )
-    ) or (
-        checkpoint_cfg.restore
-        and isinstance(
-            checkpoint_cfg.restore.checkpointer_cls, pw_checkpoints.Checkpointer
-        )
-    ):
-      raise ValueError(
-          'Requested use_orbax with Pathways checkpointing, which is currently'
-          ' unsupported.'
-      )
 
   # Each "epoch" of the training loop should be the min of the eval period,
   # checkpoint period or the full training.
@@ -225,27 +216,6 @@ def train(
   checkpoint_steps = (
       checkpoint_cfg.save.checkpoint_steps if checkpoint_cfg.save else []
   )
-
-  if eval_period or checkpoint_period or gc_period:
-    steps_per_epoch = min(
-        eval_period or np.inf, checkpoint_period or np.inf, gc_period or np.inf
-    )
-  else:
-    steps_per_epoch = total_steps
-  stats_period = stats_period or steps_per_epoch
-  if (
-      eval_period
-      and eval_period % steps_per_epoch
-      or checkpoint_period
-      and checkpoint_period % steps_per_epoch
-      or gc_period
-      and gc_period % steps_per_epoch
-  ):
-    raise ValueError(
-        f'Checkpoint period ({checkpoint_period}), eval '
-        f'period ({eval_period}), and GC period ({gc_period}) must all be '
-        'multiples of each other.'
-    )
 
   if use_hardware_rng or random_seed is None:
     logging.info(
@@ -306,11 +276,11 @@ def train(
       partitioner=partitioner,
       data_layout=data_layout,
   )
-  input_shapes = jax.tree_map(
+  input_shapes = jax.tree.map(
       lambda x: (data_layout.batch_size, *x.shape[1:]),
       train_iter.element_spec,
   )
-  input_types = jax.tree_map(lambda x: x.dtype, train_iter.element_spec)
+  input_types = jax.tree.map(lambda x: x.dtype, train_iter.element_spec)
 
   if train_eval_dataset_cfg:
     _verify_matching_vocabs(train_eval_dataset_cfg)
@@ -396,6 +366,7 @@ def train(
 
   # Skip initialization if neither save nor restore is requested.
   train_state = None
+  checkpoint_manager = None
   if valid_restore_cfg or checkpoint_period or checkpoint_steps:
     train_state, checkpoint_manager = (
         utils.create_checkpoint_manager_and_restore(
@@ -431,6 +402,30 @@ def train(
 
   # Restore step from last checkpoint or set to 0 if training from scratch.
   host_step = int(utils.get_local_data(train_state.step))  # pytype: disable=attribute-error
+
+  if relative_steps:
+    total_steps = host_step + relative_steps
+
+  if eval_period or checkpoint_period or gc_period:
+    steps_per_epoch = min(
+        eval_period or np.inf, checkpoint_period or np.inf, gc_period or np.inf
+    )
+  else:
+    steps_per_epoch = total_steps
+  stats_period = stats_period or steps_per_epoch
+  if (
+      eval_period
+      and eval_period % steps_per_epoch
+      or checkpoint_period
+      and checkpoint_period % steps_per_epoch
+      or gc_period
+      and gc_period % steps_per_epoch
+  ):
+    raise ValueError(
+        f'Checkpoint period ({checkpoint_period}), eval '
+        f'period ({eval_period}), and GC period ({gc_period}) must all be '
+        'multiples of each other.'
+    )
 
   # ---------------------------------------------------------------------------
   # Trainer
@@ -504,15 +499,14 @@ def train(
   # ----------------------------------------------------------------------------
   # Setup Eval Utility Functions
   # ----------------------------------------------------------------------------
+
   def _run_training_eval(first_run: bool = False):
     if first_run:
       logging.info('Compiling training eval loop.')
-      trainer.compile_eval(
-          {  # pytype: disable=wrong-arg-types  # jax-ndarray
-              task: utils.get_zeros_batch_like_dataset(ds)
-              for task, ds in train_eval_datasets.items()
-          }
-      )
+      trainer.compile_eval({  # pytype: disable=wrong-arg-types  # jax-ndarray
+          task: utils.get_zeros_batch_like_dataset(ds)
+          for task, ds in train_eval_datasets.items()
+      })
     logging.info('Computing training evaluation metrics.')
     eval_batch_iters = {}
     for task, ds in train_eval_datasets.items():
@@ -561,7 +555,7 @@ def train(
       _run_inference_eval()
 
   # Save checkpoints before the training loop starts.
-  if checkpoint_period:
+  if checkpoint_period and checkpoint_manager:
     # If not using Orbax, always save checkpoint, otherwise, only save a
     # checkpoint if a checkpoint does not already exist for that step. This is
     # because Orbax will error out if we try to save a checkpoint that already
@@ -637,7 +631,7 @@ def train(
     )
 
   # Construct dummy batch for compiling the model.
-  dummy_batch = jax.tree_map(_as_gda, train_iter.element_spec)
+  dummy_batch = jax.tree.map(_as_gda, train_iter.element_spec)
   if not isinstance(dummy_batch, Mapping):
     raise ValueError(
         'Training loop expects batches to have type '
@@ -682,12 +676,12 @@ def train(
     logging.info('BEGIN Train loop.')
     try:
       # Until the last epoch, `num_steps = steps_per_epoch`
-      num_steps = min(total_steps - host_step, steps_per_epoch)
-      epoch_end_step = host_step + num_steps
-      logging.info('Training for %d steps.', num_steps)
+      epoch_end_step = first_step + steps_per_epoch * (epoch - first_epoch + 1)
+      epoch_end_step = min(total_steps, epoch_end_step)
+      logging.info('Training for %d steps.', epoch_end_step - host_step)
       while host_step < epoch_end_step:
         if trainer.stop_training:
-          if checkpoint_period:
+          if checkpoint_period and checkpoint_manager:
             logging.info('Saving a checkpoint before early stopping...')
             checkpoint_manager.save(
                 trainer.train_state,
@@ -720,6 +714,9 @@ def train(
             checkpoint_period,
             first_step,
         )
+        # Handled separately if this is the overall last step.
+        if host_step + inner_num_steps == total_steps:
+          is_checkpoint_step = False
 
         train_summary = trainer.train(
             train_iter, inner_num_steps, start_step=host_step
@@ -736,26 +733,28 @@ def train(
               {TRAIN_METRIC_KEY: train_summary.result()},
           )
 
-        if is_checkpoint_step:
+        if is_checkpoint_step and checkpoint_manager:
           logging.info('Saving a checkpoint at specified checkpoint step')
           checkpoint_manager.save(
               trainer.train_state,
               checkpoint_cfg.save.state_transformation_fns,  # pytype: disable=attribute-error
           )
-        if (
-            checkpoint_steps
-            and checkpoint_steps_index < len(checkpoint_steps) - 1
-        ):
-          checkpoint_steps_index += 1
+          # Increment the checkpoint_step_index only if a checkpoint was saved.
+          if (
+              checkpoint_steps
+              and checkpoint_steps_index < len(checkpoint_steps) - 1
+          ):
+            checkpoint_steps_index += 1
         host_step += inner_num_steps
       logging.info('END Train loop.')
     except trainer_lib.PreemptionError as e:
-      if checkpoint_period:
+      if checkpoint_period and checkpoint_manager:
         logging.info('Saving emergency checkpoint.')
         checkpoint_manager.save(
             trainer.train_state,
             checkpoint_cfg.save.state_transformation_fns,  # pytype: disable=attribute-error
         )
+        checkpoint_manager.wait_until_finished()
         logging.info('Saving emergency checkpoint done.')
       raise e
 
@@ -765,8 +764,10 @@ def train(
       gc.collect()
 
     # Maybe save a checkpoint if step is at period.
-    if checkpoint_period and (
-        final_epoch or step_offset % checkpoint_period == 0
+    if (
+        checkpoint_period
+        and (final_epoch or step_offset % checkpoint_period == 0)
+        and checkpoint_manager
     ):
       train_summary.result()
       logging.info('Saving checkpoint.')
@@ -776,6 +777,9 @@ def train(
           trainer.train_state,
           checkpoint_cfg.save.state_transformation_fns,  # pytype: disable=attribute-error
       )
+      # `_run_training_eval`` depends upon the result of the checkpoint,
+      # thus calling `wait_until_finished()`` here.
+      checkpoint_manager.wait_until_finished()
       checkpoint_tock = time.time()
       train_metrics.write_scalar(
           'timing/checkpoint_seconds',
@@ -796,6 +800,8 @@ def train(
     # Inference Evaluation (i.e., with decoding or scoring).
     if is_eval_epoch and evaluator is not None:
       _run_inference_eval()
+  if checkpoint_manager:
+    checkpoint_manager.close()
 
   # Wait until computations are done before exiting
   _cleanup()

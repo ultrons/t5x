@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,9 +46,11 @@ def match_fn(prefix: Optional[str]) -> Callable[[str], bool]:
   return lambda name: params_regex.match(name) is not None
 
 
-def scale_sharded_grads(grads: Gradients,
-                        sharded_match_fn: Optional[Callable[[str], bool]],
-                        scale_factor: float) -> Gradients:
+def scale_sharded_grads(
+    grads: Gradients,
+    sharded_match_fn: Optional[Callable[[str], bool]],
+    scale_factor: float,
+) -> Gradients:
   """Scales sharded grads, identified by sharded_match_fn, by scale_factor.
 
   Args:
@@ -72,7 +74,7 @@ def scale_sharded_grads(grads: Gradients,
 
 
 def tree_map_with_names(f, param_tree, match_name_fn=lambda name: True):
-  """Like jax.tree_map but with a filter on the leaf path name.
+  """Like jax.tree.map but with a filter on the leaf path name.
 
   Args:
     f: The function to be applied to each parameter in `param_tree`.
@@ -118,14 +120,17 @@ def _tree_flatten_with_names(
 
   # Custom traversal should visit the same number of leaves.
   if len(val_names) != len(vals):
-    raise ValueError(f'Pytree traversal detected {len(val_names)} names, '
-                     f'but {len(vals)} leafs.\nTreeDef is:\n{tree_def}')
+    raise ValueError(
+        f'Pytree traversal detected {len(val_names)} names, '
+        f'but {len(vals)} leafs.\nTreeDef is:\n{tree_def}'
+    )
 
   return [(val_names[i], v) for i, v in zip(inv_perm, vals)], tree_def
 
 
 def _traverse_with_names(
-    param_tree: ParamTree) -> Iterable[Tuple[str, ParamTree]]:
+    param_tree: ParamTree,
+) -> Iterable[Tuple[str, ParamTree]]:
   """Traverses nested dicts/dataclasses and emits (leaf_name, leaf_val)."""
   if dataclasses.is_dataclass(param_tree):
     param_tree = flax.serialization.to_state_dict(param_tree)

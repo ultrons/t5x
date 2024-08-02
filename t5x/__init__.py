@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,9 +26,8 @@ import t5x.state_utils
 import t5x.train_state
 import t5x.trainer
 import t5x.utils
-
 # Version number.
-from t5x.version import __version__
+from t5x.version import __version__  # pylint: disable=g-importing-member
 
 # TODO(adarob): Move clients to t5x.checkpointing and rename
 # checkpoints.py to checkpointing.py

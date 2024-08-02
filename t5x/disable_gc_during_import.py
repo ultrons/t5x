@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ This should be _relatively_ safe, because we don't expect that it's often that
 2. That memory pressure would have been sufficiently alleviated by garbage
    collection.
 """
+
 import builtins
 import contextlib
 import gc

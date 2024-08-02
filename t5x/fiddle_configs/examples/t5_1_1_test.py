@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 """Tests for t5_1_1 examples."""
 
 from absl.testing import absltest
-
 import fiddle as fdl
 from t5x import config_utils
 from t5x.fiddle_configs.examples import t5_1_1

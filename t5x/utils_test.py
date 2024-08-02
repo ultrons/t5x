@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@ import unittest
 from absl import flags
 from absl.testing import absltest
 from absl.testing import parameterized
+import airio.core as airio
+import airio.pygrain_common as airio_common
 import flax.core
 from flax.linen import partitioning as flax_partitioning
 import jax
@@ -274,7 +276,7 @@ class UtilsTest(parameterized.TestCase):
     )
 
     self.assertSameElements(ds.keys(), ["mock_task"])
-    jax.tree_map(
+    jax.tree.map(
         np.testing.assert_equal,
         list(ds["mock_task"]),
         [
@@ -306,7 +308,7 @@ class UtilsTest(parameterized.TestCase):
     )
 
     self.assertSameElements(ds.keys(), ["mock_task"])
-    jax.tree_map(
+    jax.tree.map(
         np.testing.assert_equal,
         list(ds["mock_task"]),
         [
@@ -338,7 +340,7 @@ class UtilsTest(parameterized.TestCase):
     )
 
     self.assertSameElements(ds.keys(), ["mock_task"])
-    jax.tree_map(
+    jax.tree.map(
         np.testing.assert_equal,
         list(ds["mock_task"]),
         [
@@ -434,7 +436,7 @@ class UtilsTest(parameterized.TestCase):
         res.keys(), ["mock_task1", "mock_task2", "mock_mix"]
     )
     for ds in res.values():
-      jax.tree_map(
+      jax.tree.map(
           np.testing.assert_equal,
           list(ds),
           [
@@ -516,7 +518,7 @@ class UtilsTest(parameterized.TestCase):
         res_obj.keys(), ["mock_task3", "mock_task4", "mock_mix2"]
     )
     for ds in res_obj.values():
-      jax.tree_map(
+      jax.tree.map(
           np.testing.assert_equal,
           list(ds),
           [
@@ -577,7 +579,7 @@ class UtilsTest(parameterized.TestCase):
         ],
     )
 
-    jax.tree_map(
+    jax.tree.map(
         np.testing.assert_equal,
         overridden_variables,
         flax.core.freeze({
@@ -706,10 +708,18 @@ class UtilsTest(parameterized.TestCase):
         restore_dataset=False,
     )
 
+    global_mesh = test_utils.create_global_mesh((4, 2), ("x", "y"))
+    mesh_axes = partitioning.PartitionSpec("x", "y")
+    global_input_shape = (8, 2)
+
+    train_state = test_utils.make_train_state(
+        global_mesh, global_input_shape, mesh_axes
+    )
+
     manager = utils.create_orbax_checkpoint_manager(
         save_cfg=save_cfg,
         restore_cfg=restore_cfg,
-        train_state=mock.Mock(),
+        train_state=train_state,
         partitioner=mock_partitioner,
         ds_iter=mock.Mock(),
         model_dir=directory,
@@ -773,10 +783,18 @@ class UtilsTest(parameterized.TestCase):
         restore_dataset=False,
     )
 
+    global_mesh = test_utils.create_global_mesh((4, 2), ("x", "y"))
+    mesh_axes = partitioning.PartitionSpec("x", "y")
+    global_input_shape = (8, 2)
+
+    train_state = test_utils.make_train_state(
+        global_mesh, global_input_shape, mesh_axes
+    )
+
     manager = utils.create_orbax_checkpoint_manager(
         save_cfg=save_cfg,
         restore_cfg=restore_cfg,
-        train_state=mock.Mock(),
+        train_state=train_state,
         partitioner=mock_partitioner,
         ds_iter=mock.Mock(),
         model_dir=directory,

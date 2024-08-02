@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """General utility functions for t5x."""
+
 import collections
 import collections.abc
 from concurrent.futures import thread
@@ -28,9 +29,10 @@ import typing
 from typing import Any, Callable, Iterable, Mapping, Optional, Sequence, Tuple, Type, Union
 import warnings
 
+from absl import app  # pylint: disable=unused-import
 from absl import flags
 from absl import logging
-import airio
+import airio.core as airio
 import clu.data
 import flax
 from flax import traverse_util
@@ -389,13 +391,19 @@ class LegacyCheckpointManager(orbax.checkpoint.CheckpointManager):
         strict=strict,
     )
 
+  def wait_until_finished(self):
+    pass
+
+  def close(self):
+    pass
+
   def save(
       self,
       train_state: train_state_lib.TrainState,
       state_transformation_fns: Sequence[
           checkpoints.SaveStateTransformationFn
       ] = (),
-  ):
+  ):  # pytype: disable=signature-mismatch
     """Performs save operation.
 
     Args:
@@ -416,7 +424,7 @@ class LegacyCheckpointManager(orbax.checkpoint.CheckpointManager):
       fallback_state: Optional[Mapping[str, Any]] = None,
   ) -> Optional[
       Union[train_state_lib.TrainState, Sequence[train_state_lib.TrainState]]
-  ]:
+  ]:  # pytype: disable=signature-mismatch
     """Performs restore operation using restore_checkpointer.
 
     Determines whether the indicated path is a Tensorflow checkpoint.
@@ -540,6 +548,18 @@ class DatasetConfig:
   use_memory_cache: bool = True
   # Whether to trim output features from tasks.
   trim_output_features: bool = True
+  ### AirIO-only ###
+  # A list of runtime preprocessors to pass to airio. Generally used
+  # to configure feature converters and packing. Ignored for non-airio configs.
+  runtime_preprocessors: Sequence[Any] | None = None
+  # The number of threads reading from the data source in parallel. Passing None
+  # or 0 will use the default number of threads.
+  num_prefetch_threads: int | None = None
+  # Number of Python worker processes. More processes can speed up
+  # the pipeline if it's compute bound and bottlenecked on the CPython's GIL.
+  # 0 means no Python multiprocessing. All data loading and transformation
+  # will run in the main Python process.
+  num_workers: int | None = 0
 
 
 def _hashed_index(x) -> int:
@@ -653,14 +673,14 @@ def _create_sharded_array(
 
     return device_buffers
 
-  device_buffers = jax.tree_map(_put_to_devices, host_arrays, global_shapes)
+  device_buffers = jax.tree.map(_put_to_devices, host_arrays, global_shapes)
 
   def _jax_array(dbs, global_shape):
     return jax.make_array_from_single_device_arrays(
         global_shape, jax.sharding.NamedSharding(global_mesh, axes), dbs
     )
 
-  return jax.tree_map(
+  return jax.tree.map(
       _jax_array,
       device_buffers,
       global_shapes,
@@ -716,7 +736,7 @@ def prepare_train_iter(
     data_layout,
 ) -> clu.data.dataset_iterator.PeekableDatasetIterator:
   """Prepares the training input iterator."""
-  if isinstance(train_iter, airio.PyGrainDatasetIteratorWrapper):
+  if isinstance(train_iter, airio.AirIODatasetIterator):
     return train_iter
   if isinstance(train_iter, tf.data.Dataset):
     train_iter = clu.data.dataset_iterator.TfDatasetIterator(
@@ -728,7 +748,7 @@ def prepare_train_iter(
     )
 
 
-  input_shapes = jax.tree_map(
+  input_shapes = jax.tree.map(
       lambda x: (data_layout.batch_size, *x.shape[1:]), train_iter.element_spec
   )
   train_iter = ShardedDatasetIterator(train_iter, partitioner, input_shapes)
@@ -790,7 +810,7 @@ def get_zeros_batch_like_spec(
 
 
 def get_zeros_batch_like_dataset(
-    dataset: Union[tf.data.Dataset, airio.PyGrainDatasetIteratorWrapper],
+    dataset: Union[tf.data.Dataset, airio.AirIODatasetIterator],
     batch_size=None,
 ) -> Mapping[str, jnp.ndarray]:
   """Get zeros batch like the dataset spec."""
@@ -1297,8 +1317,24 @@ def create_orbax_checkpoint_manager(
       # differently since it's a functools.partial.
       extra_kwargs = _get_default_args(cfg.checkpointer_cls)
     else:
-      if issubclass(cfg.checkpointer_cls, checkpoints.SaveBestCheckpointer):
-        extra_kwargs = _get_default_args(cfg.checkpointer_cls.__init__)
+      if issubclass(
+          type(cfg.checkpointer_cls), checkpoints.SaveBestCheckpointer
+      ):
+        save_best_checkpointer = checkpoints.SaveBestCheckpointer(
+            train_state=train_state,
+            checkpoints_dir=model_dir,
+            partitioner=partitioner,
+        )
+        extra_kwargs = {
+            'metric_name_to_monitor': (
+                save_best_checkpointer._metric_name_to_monitor  # pylint: disable=protected-access
+            ),
+            'metric_mode': save_best_checkpointer._metric_mode,  # pylint: disable=protected-access
+            'keep_checkpoints_without_metrics': (
+                save_best_checkpointer._keep_checkpoints_without_metrics  # pylint: disable=protected-access
+            ),
+            'force_keep_period': save_best_checkpointer._force_keep_period,  # pylint: disable=protected-access
+        }
     return extra_kwargs
 
   save_dtype = None
@@ -1358,12 +1394,12 @@ def log_model_info(
 
   state_dict = full_train_state.state_dict()
   total_num_params = jax.tree_util.tree_reduce(
-      np.add, jax.tree_map(np.size, state_dict['target'])
+      np.add, jax.tree.map(np.size, state_dict['target'])
   )
 
   logical_axes = partitioner.get_logical_axes(full_train_state).state_dict()
 
-  mesh_axes = jax.tree_map(
+  mesh_axes = jax.tree.map(
       lambda x: tuple(x) if x is not None else None,
       partitioner.get_mesh_axes(full_train_state).state_dict(),
   )
@@ -1411,7 +1447,7 @@ def log_model_info(
           mesh_axes,
       )
 
-    jax.tree_map(
+    jax.tree.map(
         _log_variable,
         state_utils.get_name_tree(state_dict['target'], keep_empty_nodes=True),
         state_dict['target'],
@@ -1426,7 +1462,7 @@ def log_model_info(
     # Add a blank line between params and states.
     _log_info_and_write_to_file(writer, '')
 
-    jax.tree_map(
+    jax.tree.map(
         _log_variable,
         state_utils.get_name_tree(state_dict['state'], keep_empty_nodes=True),
         state_dict['state'],
@@ -1498,7 +1534,7 @@ def _remove_padding(all_inferences, all_indices):
   """
   non_pad_idxs = np.where(all_indices >= 0)
   all_indices = all_indices[non_pad_idxs]
-  all_inferences = jax.tree_map(lambda x: x[non_pad_idxs], all_inferences)
+  all_inferences = jax.tree.map(lambda x: x[non_pad_idxs], all_inferences)
   return all_inferences, all_indices
 
 
@@ -1587,7 +1623,7 @@ def get_infer_fn(
       train_state: train_state_lib.TrainState,
       rng: Optional[jnp.ndarray] = None,
   ):
-    ds_shapes = jax.tree_map(lambda x: jnp.array(x.shape), ds.element_spec)
+    ds_shapes = jax.tree.map(lambda x: jnp.array(x.shape), ds.element_spec)
     multihost_assert_equal(
         ds_shapes,
         (
@@ -1690,6 +1726,7 @@ def get_infer_fn(
         )
         logging.info('Inference of batch %s done.', index)
 
+
       def _copy_to_host_async(x):
         if hasattr(x, 'addressable_data'):
           # Array is fully replicated.
@@ -1700,8 +1737,8 @@ def get_infer_fn(
           return x
 
       try:
-        batch_result = jax.tree_map(_copy_to_host_async, batch_result)
-        batch_indices = jax.tree_map(_copy_to_host_async, batch_indices)
+        batch_result = jax.tree.map(_copy_to_host_async, batch_result)
+        batch_indices = jax.tree.map(_copy_to_host_async, batch_indices)
       except AttributeError:
         # Similar to jax.device_get, we skip transfers for non DeviceArrays.
         pass
@@ -1713,7 +1750,7 @@ def get_infer_fn(
     all_inferences = batched_results
 
     # List[B * shard_count, ...] -> [B * shard_count * batch_count, ...]
-    all_inferences = jax.tree_map(
+    all_inferences = jax.tree.map(
         lambda *args: np.concatenate(args), *all_inferences
     )
     all_indices = np.concatenate(all_indices)
@@ -1724,7 +1761,7 @@ def get_infer_fn(
     # Note: remove padding first, as -1 indices would mess up this operation.
     # Note: all_inferences may be a PyTree, not just an array, e.g. if
     # `infer_step` is `model.predict_batch_with_aux`.
-    all_inferences = jax.tree_map(lambda x: x[all_indices], all_inferences)
+    all_inferences = jax.tree.map(lambda x: x[all_indices], all_inferences)
     all_indices = all_indices[all_indices]
 
     # aux_values is supposed to be a dictionary that maps strings to a set of
@@ -1756,7 +1793,7 @@ def get_infer_fn(
         zip(*all_inferences),
     )
     indices_and_outputs = list(zip(all_indices, all_inferences))
-    indices_and_outputs = jax.tree_map(
+    indices_and_outputs = jax.tree.map(
         lambda x: np.array(x).tolist(), indices_and_outputs
     )
     if len(indices_and_outputs) != original_ds_length:
@@ -1770,9 +1807,9 @@ def get_infer_fn(
       return indices_and_outputs
     else:
       if keep_aux_as_numpy:
-        aux_values = jax.tree_map(lambda x: list(np.array(x)), aux_values)
+        aux_values = jax.tree.map(lambda x: list(np.array(x)), aux_values)
       else:
-        aux_values = jax.tree_map(lambda x: np.array(x).tolist(), aux_values)
+        aux_values = jax.tree.map(lambda x: np.array(x).tolist(), aux_values)
       return indices_and_outputs, aux_values
 
   return infer_fn
@@ -1829,12 +1866,12 @@ def get_vocabulary(
 
   if isinstance(cfg.mixture_or_task_name, airio.DatasetProviderBase):
     mixture_or_task = cfg.mixture_or_task_name
-    vocab_map = airio.get_vocabularies(mixture_or_task)
+    vocab_map = airio.dataset_providers.get_vocabularies(mixture_or_task)
     if not vocab_map:
       raise ValueError(
           f'No vocabularies found for AirIO task/mixture {mixture_or_task}'
       )
-    features = {k: seqio.Feature(vocabulary=v) for k, v in vocab_map.items()}
+    features = {k: seqio.Feature(vocabulary=v) for k, v in vocab_map.items()}  # pytype: disable=wrong-arg-types
   elif isinstance(cfg.mixture_or_task_name, seqio.DatasetProviderBase):
     mixture_or_task = cfg.mixture_or_task_name
     features = mixture_or_task.output_features
@@ -2013,7 +2050,10 @@ class GetDatasetCallable(typing_extensions.Protocol):
       feature_converter_cls: Callable[..., seqio.FeatureConverter],
       num_epochs: Optional[int] = None,
       continue_from_last_checkpoint: bool = True,
-  ) -> Union[clu.data.dataset_iterator.DatasetIterator, tf.data.Dataset,]:
+  ) -> Union[
+      clu.data.dataset_iterator.DatasetIterator,
+      tf.data.Dataset,
+  ]:
     ...
 
 
@@ -2027,9 +2067,7 @@ class GetEvalDatasetCallable(typing_extensions.Protocol):
       num_shards: int,
       eval_steps: int,
       feature_converter_cls: Callable[..., seqio.FeatureConverter],
-  ) -> Mapping[
-      str, Union[tf.data.Dataset, airio.PyGrainDatasetIteratorWrapper]
-  ]:
+  ) -> Mapping[str, Union[tf.data.Dataset, airio.AirIODatasetIterator]]:
     ...
 
 
@@ -2251,10 +2289,14 @@ def find_next_checkpoint_step(
     checkpoint_period: int,
     first_step: int,
 ):
-  """Finds next valid checkpoint step in checkpoint_steps list parameter to stop scalar training and save a checkpoint at.
+  """Finds next valid checkpoint step in checkpoint_steps list parameter.
 
-  Checkpoint step is considered valid if it is less than the epoch end step,
-  not at a concurrent checkpoint_period step, greater than the epoch first step.
+  This will stop scalar training and save a checkpoint at that step.
+  Checkpoint step is considered valid if less than or equal to epoch end step,
+  not at a concurrent checkpoint_period step, and greater than the first
+  step. Specifically, this will decrease inner_num_steps (the current number
+  of scalar steps to train) if host_step + inner_num_steps would otherwise
+  pass a desired checkpoint step.
 
   Args:
     checkpoint_steps_index: Current index in checkpoint_steps list while
@@ -2268,7 +2310,8 @@ def find_next_checkpoint_step(
     epoch_end_step: Last training step in epoch.
     checkpoint_period: Period value passed in as parameter in
       checkpoint_cfg.save.
-    first_step: First step in epoch while training.
+    first_step: First step while training. Or, this may be the first step after
+      resuming a job (e.g. after pre-emption).
 
   Returns:
     Tuple containing (possibly) halted inner_num_steps value and
@@ -2279,14 +2322,16 @@ def find_next_checkpoint_step(
   while (
       checkpoint_steps
       and (inner_num_steps + host_step)
-      > checkpoint_steps[checkpoint_steps_index]
+      >= checkpoint_steps[checkpoint_steps_index]
   ):
     curr_checkpoint_step = checkpoint_steps[checkpoint_steps_index]
     if (
         ((curr_checkpoint_step - first_step) % checkpoint_period != 0)
-        and checkpoint_steps_index > first_step
-        and curr_checkpoint_step < epoch_end_step
+        and curr_checkpoint_step > first_step
+        and curr_checkpoint_step <= epoch_end_step
     ):
+      # Found a checkpoint step before inner_num_steps + host_step that
+      # is not part of the normal period.
       inner_num_steps = curr_checkpoint_step - host_step
       is_checkpoint_step = True
       return (inner_num_steps, is_checkpoint_step)
@@ -2294,7 +2339,12 @@ def find_next_checkpoint_step(
         not is_checkpoint_step
         and checkpoint_steps_index == len(checkpoint_steps) - 1
     ):
+      # Iterated through all of checkpoint_steps, and there are no new
+      # checkpoint steps before inner_num_steps + host_step.
       return (inner_num_steps, is_checkpoint_step)
+    checkpoint_steps_index += 1
+  # Reached inner_num_steps + host_step and no new checkpoint steps found.
+  # Return the original settings.
   return (inner_num_steps, is_checkpoint_step)
 
 
@@ -2315,8 +2365,8 @@ def find_first_checkpoint_step(
     host_step: Host step of training.
 
   Returns:
-    Integer containing first valid checkpoint step index to start off epoch
-    training on.
+    Integer containing first valid checkpoint step index after host_step and not
+    equal to first_step.
   """
   while (
       checkpoint_steps
@@ -2330,3 +2380,7 @@ def find_first_checkpoint_step(
   return checkpoint_steps_index
 
 
+
+
+def run_main(main, flags_parser):
+  app.run(main, flags_parser=flags_parser)

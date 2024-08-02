@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,5 @@ import t5x.contrib.moe.models
 import t5x.contrib.moe.partitioning
 import t5x.contrib.moe.trainer
 import t5x.contrib.moe.training_utils
-
 # Version number.
 from t5x.version import __version__

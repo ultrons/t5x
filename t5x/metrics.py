@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -298,7 +298,7 @@ def set_time_metrics_duration(metrics, duration):
     else:
       return o
 
-  return jax.tree_map(fn, metrics, is_leaf=lambda obj: isinstance(obj, Time))
+  return jax.tree.map(fn, metrics, is_leaf=lambda obj: isinstance(obj, Time))
 
 
 def set_step_metrics_num_steps(metrics, num_steps):
@@ -310,4 +310,4 @@ def set_step_metrics_num_steps(metrics, num_steps):
     else:
       return o
 
-  return jax.tree_map(fn, metrics, is_leaf=is_metric_obj)
+  return jax.tree.map(fn, metrics, is_leaf=is_metric_obj)

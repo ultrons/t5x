@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,8 @@ class CheckpointsUtilsTest(absltest.TestCase):
   def test_always_keep_checkpoint_file(self):
     self.assertEqual(
         "/path/to/ckpt/dir/PINNED",
-        checkpoint_utils.pinned_checkpoint_filepath("/path/to/ckpt/dir"))
+        checkpoint_utils.pinned_checkpoint_filepath("/path/to/ckpt/dir"),
+    )
 
   def test_is_pinned_checkpoint_false_by_default(self):
     # Ensure regular checkpoint without PINNED file.
@@ -61,7 +62,9 @@ class CheckpointsUtilsTest(absltest.TestCase):
   def test_is_pinned_missing_ckpt(self):
     self.assertFalse(
         checkpoint_utils.is_pinned_checkpoint(
-            os.path.join(self.ckpt_dir_path, "ckpt_does_not_exist")))
+            os.path.join(self.ckpt_dir_path, "ckpt_does_not_exist")
+        )
+    )
 
   def test_pin_checkpoint(self):
     # Ensure directory isn't already pinned.
@@ -163,7 +166,7 @@ class CheckpointsUtilsTest(absltest.TestCase):
     ret = checkpoint_utils.detect_checkpoint_type(
         orbax_ckpt, expected=checkpoint_utils.CheckpointTypes.ORBAX
     )
-    self.assertEqual(ret, checkpoint_utils.CheckpointTypes.ORBAX)
+    self.assertEqual(ret, checkpoint_utils.CheckpointTypes.T5X)
 
     with self.assertLogs(level="WARN") as log_output:
       checkpoint_utils.detect_checkpoint_type(
@@ -182,7 +185,7 @@ class CheckpointsUtilsTest(absltest.TestCase):
     self.assertRegex(
         log_output[0][0].message,
         ".*to be CheckpointTypes.T5X_TF format, but the actual detected format"
-        " was CheckpointTypes.ORBAX.*",
+        " was CheckpointTypes.T5X.*",
     )
 
 

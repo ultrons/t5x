@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import os
 from absl import flags
 from absl.testing import absltest
 from absl.testing import parameterized
-
 import jax
 import numpy as np
 from t5x import test_utils

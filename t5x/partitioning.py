@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ from jax import random
 from jax.experimental import multihost_utils
 from jax.experimental.mesh_utils import create_hybrid_device_mesh
 from jax.experimental.pjit import pjit
+from jax.interpreters import pxla
 from jax.sharding import Mesh
 from jax.sharding import PartitionSpec
 import numpy as np
@@ -79,7 +80,7 @@ def bounds_from_last_device(last_device: jax.Device) -> HardwareMesh:
   # Must be passed the device at the highest-coordinate corner of the
   # relevant mesh, which is a requirement we know is satisfied by the last
   # device in jax.devices().
-  if hasattr(last_device, 'coords'):
+  if hasattr(last_device, 'coords') and len(last_device.coords) == 3:
     x, y, z = last_device.coords
     return x + 1, y + 1, z + 1, last_device.core_on_chip + 1
   else:
@@ -97,7 +98,7 @@ def get_coords(device: jax.Device) -> HardwareMesh:
 
 def global_mesh_defined():
   """Checks if global xmap/pjit mesh resource environment is defined."""
-  maps_env = jax.experimental.maps.thread_resources.env
+  maps_env = pxla.thread_resources.env
   return maps_env.physical_mesh.devices.shape != ()  # pylint: disable=g-explicit-bool-comparison
 
 
@@ -872,7 +873,8 @@ class BasePartitioner(metaclass=abc.ABCMeta):
     """Returns a copy of TrainState with Optional[AxisNames] as leaves."""
     # By default, return None for the logical axes.
     return train_state.restore_state(
-        jax.tree_map(lambda x: None, train_state.state_dict()))
+        jax.tree.map(lambda x: None, train_state.state_dict())
+    )
 
   def get_mesh_axes(self, train_state: TrainState) -> TrainState:
     """Returns a copy of TrainState with Optional[PartitionSpecs] as leaves."""
@@ -1135,7 +1137,7 @@ class PjitPartitioner(BasePjitPartitioner):
 # arr_tree is a PyTree of jax.Array or np.ndarray and
 # pspecs is PyTree[jax.sharding.PartitionSpec]
 def host_local_array_to_global_array(arr_tree, mesh: jax.sharding.Mesh, pspecs):
-  pspecs = jax.tree_map(
+  pspecs = jax.tree.map(
       lambda x: PartitionSpec() if x is None else x,
       pspecs,
       is_leaf=lambda x: x is None,

@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ def model(
 ) -> fdl.Buildable[models.BaseTransformerModel]:
   return fdl.Config(
       models.EncoderDecoderModel,
-      module=fdl.Config(
+      module=fdl.Config(  # pytype: disable=wrong-arg-types  # use-fiddle-overlay
           network.Transformer,
           config=config,
       ),

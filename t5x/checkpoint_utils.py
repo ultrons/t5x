@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -236,13 +236,13 @@ def detect_checkpoint_type(
       )
       return checkpoint_type
     else:
-      checkpoint_type = CheckpointTypes.ORBAX
+      checkpoint_type = CheckpointTypes.T5X
       _warn_if_unexpected_type(
           checkpoint_path,
           checkpoint_type,
           expected,
           'Did not detect ts.Spec nor the {"version", "optimizer"} keys in the'
           'checkpoint msgpack file, so the checkpoint was assumed to be '
-          'written with Orbax.',
+          'written with T5X.',
       )
       return checkpoint_type

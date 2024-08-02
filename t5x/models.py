@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -199,7 +199,7 @@ class BaseModel(abc.ABC):
       batch: Mapping[str, jnp.ndarray],
       rng: Optional[jax.Array] = None,
   ) -> Tuple[jnp.ndarray, Mapping[str, jnp.ndarray]]:
-    """Predict a batch from the modelwith auxiliary outputs.
+    """Predict a batch from the model with auxiliary outputs.
 
     Args:
       params: model parameters.
@@ -384,9 +384,7 @@ class EncoderDecoderModel(BaseTransformerModel):
       default_decoder_params: Optional[DecoderParams] = None,
   ):
     if feature_converter_cls is not None:
-      self.FEATURE_CONVERTER_CLS = (
-          feature_converter_cls  # pylint: disable=invalid-name
-      )
+      self.FEATURE_CONVERTER_CLS = feature_converter_cls  # pylint: disable=invalid-name
     self._default_decoder_params = default_decoder_params or DecoderParams()
     super().__init__(
         module=module,
@@ -847,9 +845,7 @@ class DecoderOnlyModel(BaseTransformerModel):
       ] = None,
   ):
     if feature_converter_cls is not None:
-      self.FEATURE_CONVERTER_CLS = (
-          feature_converter_cls  # pylint: disable=invalid-name
-      )
+      self.FEATURE_CONVERTER_CLS = feature_converter_cls  # pylint: disable=invalid-name
     self._inputs_bidirectional_attention = inputs_bidirectional_attention
     super().__init__(
         module,

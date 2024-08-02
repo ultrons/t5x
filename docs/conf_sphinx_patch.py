@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 from typing import Any, Dict, List, Set, Tuple
 import sphinx.ext.autodoc
 import sphinx.ext.autosummary.generate as ag
+
 
 # pylint:disable=all
 def generate_autosummary_content(

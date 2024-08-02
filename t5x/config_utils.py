@@ -1,4 +1,4 @@
-# Copyright 2023 The T5X Authors.
+# Copyright 2024 The T5X Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,11 @@
 # limitations under the License.
 
 """Utilities for configuring T5X binaries."""
+
 import copy
 import inspect
 from typing import Callable, Optional, TypeVar
 
-from absl import app
 from absl import flags
 from absl import logging
 from clu import metric_writers
@@ -28,6 +28,7 @@ from fiddle import selectors
 from fiddle.experimental import serialization
 import jax
 from t5x import gin_utils
+from t5x import utils
 
 
 FLAGS = flags.FLAGS
@@ -209,6 +210,6 @@ def run(main):
 
   jax.config.parse_flags_with_absl()
   if using_fdl():
-    app.run(main, flags_parser=flags_parser)
+    utils.run_main(main, flags_parser=flags_parser)
   else:
     gin_utils.run(main)
